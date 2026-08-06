@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 允许通过 FileProvider 共享缓存目录中的文件（用于剪贴板图片共享） -->
+    <cache-path
+        name="clipboard_images"
+        path="/" />
+</paths>

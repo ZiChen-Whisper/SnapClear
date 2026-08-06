@@ -1,0 +1,48 @@
+<resources>
+    <string name="app_name">SnapClear</string>
+
+    <!-- 权限相关 -->
+    <string name="permission_storage">存储/媒体权限</string>
+    <string name="permission_storage_desc">用于读取截图文件</string>
+    <string name="permission_notification">通知权限</string>
+    <string name="permission_notification_desc">用于发送截图操作通知</string>
+    <string name="permission_overlay">悬浮窗权限</string>
+    <string name="permission_overlay_desc">用于显示快捷操作（后续阶段）</string>
+    <string name="permission_granted">已授权</string>
+    <string name="permission_denied">未授权</string>
+    <string name="permission_goto_settings">前往设置</string>
+    <string name="permission_rationale_title">需要权限</string>
+    <string name="permission_rationale_storage">SnapClear 需要访问您的截图文件才能在检测到新截图时提供快捷操作。</string>
+    <string name="permission_rationale_notification">SnapClear 需要通知权限才能在新截图时弹出操作窗口。</string>
+
+    <!-- 电池优化 -->
+    <string name="battery_optimization_title">电池优化豁免</string>
+    <string name="battery_optimization_granted">已加入白名单，后台运行不受限制</string>
+    <string name="battery_optimization_denied">未豁免，后台服务可能被系统杀死</string>
+    <string name="battery_optimization_request">请求豁免</string>
+    <string name="battery_optimization_goto_settings">前往设置</string>
+
+    <!-- 主界面 -->
+    <string name="start_monitoring">开始监听截图</string>
+    <string name="stop_monitoring">停止监听</string>
+    <string name="monitoring_active">监听中…</string>
+    <string name="permission_required">请先授予必要权限</string>
+    <string name="all_permissions_granted">所有权限已就绪</string>
+
+    <!-- 通知 -->
+    <string name="notification_channel_name">截图操作</string>
+    <string name="notification_channel_desc">截图检测后的操作通知</string>
+    <string name="notification_channel_monitor_name">监听服务</string>
+    <string name="notification_channel_monitor_desc">截图监听运行状态</string>
+    <string name="notification_screenshot_title">检测到新截图</string>
+    <string name="notification_screenshot_text">点击下方按钮进行操作</string>
+    <string name="notification_monitor_title">SnapClear 监听中</string>
+    <string name="notification_monitor_text">正在监听截图…</string>
+    <string name="notification_action_copy_delete">拷贝并删除</string>
+    <string name="notification_action_ignore">忽略</string>
+
+    <!-- 结果提示 -->
+    <string name="toast_copied_and_deleted">已拷贝到剪贴板并删除原文件</string>
+    <string name="toast_copied_delete_failed">已拷贝到剪贴板，但删除失败，请手动删除</string>
+    <string name="toast_copy_failed">拷贝失败</string>
+</resources>
