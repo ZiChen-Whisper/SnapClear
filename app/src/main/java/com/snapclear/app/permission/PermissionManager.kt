@@ -2,6 +2,7 @@ package com.snapclear.app.permission
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -137,6 +138,48 @@ object PermissionManager {
             )
         } else {
             openAppSettings(context)
+        }
+    }
+
+    /**
+     * 检查流体云（提升通知）权限
+     *
+     * Android 16+ 的 POST_PROMOTED_NOTIFICATIONS 是特殊权限，
+     * 类似 USE_FULL_SCREEN_INTENT，需用户在系统设置中手动授予。
+     * 仅 manifest 声明不够，必须用 NotificationManager.canPostPromotedNotifications() 检查。
+     *
+     * 授予后通知才能被 setRequestPromotedOngoing(true) 提升为流体云 / Live Updates，
+     * 从而绕过后台通知延迟投递。
+     */
+    fun canPostPromotedNotifications(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 36) return true
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
+        return manager.canPostPromotedNotifications()
+    }
+
+    /**
+     * 打开流体云（提升通知）权限设置页面
+     *
+     * 对应系统设置路径：设置 → 应用 → SnapClear → 通知 → 提升通知（或"流体云"）
+     */
+    fun openPromotedNotificationsSettings(context: Context) {
+        try {
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            // 部分设备不支持该 action，回退到应用通知设置页
+            try {
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (_: Exception) {
+                openAppSettings(context)
+            }
         }
     }
 

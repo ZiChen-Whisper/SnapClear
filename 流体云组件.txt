@@ -1,0 +1,1456 @@
+流体云组件
+针对流体云模板，只能使用特定的几种类型的组件，每个模板支持的组件类型略有不同。
+
+组件通用
+条件渲染
+
+if 渲染指令指 if | else 控制指令，用于控制是否添加或移除某个组件，使用{{ }}和条件绑定，只有当条件为 true 时，组件才会被添加，条件为 false 时，组件会被移除。
+
+示例：
+
+  <text level="1:B*" if="{{ showText }}">{{ description }}</text>
+  <image level="1:B*" src="{{ logo }}" else></image>
+注意：除了G1, G2信息外，绑定if else的两个对应的组件level必须一致。
+
+说明：
+从API 3.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+展开态可以通过if else来显示隐藏顶部，核心，底部三块信息区
+
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded bg-color="#000000" border-color="#0000ff" level="F1*">
+      <leading category="mirror" if="{{show}}">
+        <image level="D8" src="./assets/images/a1.png"></image>
+        <text level="C10">{{ C10Text }}</text>
+        <text level="C11"> {{ C11Text }}</text>
+        <image level="D9" src="./assets/images/logo.png"></image>
+      </leading>
+      <center category="common">
+        <text level="B1*">{{ B1Text }}</text>
+        <text level="C1">{{ C1Text }}</text>
+        <text level="C2">{{ C2Text }}</text>
+        <text level="C3">{{ C3Text }}</text>
+        <image level="D1" src="assets/images/logo.png"></image>
+        <button level="E1*">{{ E1Btn }}</button>
+        <button level="E2">{{ E2Btn }}</button>               
+        <div level="G2">
+          <text level="C5">{{ C6Text }}</text>
+          <image level="D3" src="assets/images/d4.png"></image>
+        </div>
+      </center>
+      <trailing category="multi-texts" else>
+        <text level="C14">{{ C14text }}</text>  
+        <text level="C15">{{ C15text }}</text> 
+        <text level="C16">{{ C16text }}</text> 
+        <text level="C17">{{ C17text }}</text> 
+        <text level="C18">{{ C18text }}</text> 
+        <text level="C19">{{ C19text }}</text> 
+      </trailing>
+    </expanded>
+    <voice>{{ voiceLabel }}</voice>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+    
+</template>
+    
+<style>
+</style>
+
+<data>
+    {
+        "uiData": {
+          "show": true,
+          "c10Text": "辅助信息10",
+          "c11Text": "辅助信息11",
+          "B1Text": "核心信息B1",
+          "C1Text": "辅助信息 1",
+          "C2Text": "辅助信息 2",
+          "C3Text": "辅助信息 3",
+          "C4Text": "辅助信息 4",
+          "C6Text": "辅助信息 6",
+          "E1Btn": "按钮1",
+          "E2Btn": "按钮2",
+          "C14text": "文本信息C14",
+          "C15text": "文本信息C15",
+          "C16text": "文本信息C16",
+          "C17text": "文本信息C17",
+          "C18text": "文本信息C18",
+          "C19text": "文本信息C19",
+          "voiceLabel": "语音播报"
+        },
+
+        "uiEvent": {
+        }
+    }
+</data>
+线性渐变
+为了创建一个线性渐变，你必须至少定义两种颜色节点。颜色节点即你想要呈现平稳过渡的颜色。同时，你也可以设置一个起点和一个方向（或一个角度）。向下/向上/向左/向右/对角方向
+
+渐变通用属性：
+过渡方向
+通过angle指定方向
+
+bg-color="linear-gradient(angle, color1, color2, color3,...)"
+过渡方向
+至少配置两种颜色
+参数：
+
+名称	类型	默认值	必填	描述
+angle		180deg	否	过渡方向，以元素几何中心为坐标原点，水平方向为X轴，angle指定了渐变线与Y轴的夹角(顺时针方向)。注：angle角度是45的整数倍，范围[0,360）
+color		-	是	定义使用渐变样式区域内颜色的渐变效果。注：不支持颜色值后面配置百分比
+示例：
+默认渐变从上到下
+
+<expanded bg-color="linear-gradient(#FF7043,#15d5db)" level="F1*" >        
+</expanded>
+image.png
+
+渐变从左到右
+
+<expanded bg-color="linear-gradient(90deg,#3D43EB,rgb(255, 112, 67))" level="F1*" >        
+</expanded>
+image.png
+
+自定义样式
+说明：以变量的形式声明样式，以便卡片开发者可以通过更新数据的方式来动态更新组件的样式。
+
+uiData中自定义样式变量值的写法如下：
+
+<template>
+  <card-template entry="notification" category="modular">
+      <compact>
+            // 流体云胶囊形态
+        </compact>
+  
+      <expanded bg-color="{{bc}}">
+          // 流体云展开形态
+            <leading>
+                // 展开态leading 内容
+            </leading>
+            <center>
+                // 展开态trailing 内容
+            </center>
+            <trailing>
+                // 展开态trailing 内容
+            </trailing>
+      </expanded>
+      <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+  </card-template>
+</template>
+
+<style>
+</style>
+
+<data>
+  {
+    "uiData": {
+        "bc": "linear-gradient(#FF7043,#15d5db)"
+    }
+  }
+</data>
+card-template
+说明：
+从API 1.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+容器，用来分隔块级元素组。
+
+属性
+
+名称	类型	必填	描述
+leading-layout	string	否	API3.0.0+
+start：左侧展示布局
+end：右侧展示布局
+space-between：两侧对齐布局
+cross-between：两侧交叉布局
+仅针对通用模板"A1，C1"和对称模板"A1，C1"有效
+样式
+不支持自定义样式。
+
+
+子组件
+支持div。
+
+
+事件
+支持点击事件。
+
+
+方法
+不支持。
+
+
+示例
+
+<card-template category="general" entry="notification" >
+</card-template>
+compact
+说明：
+从API 3.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+流体云胶囊容器，含气泡态，用来分隔块级元素组, 用来承载胶囊信息。
+
+属性
+
+名称	类型	必填	描述
+border-color	string	否	API3.0.0+
+描边颜色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+'rgba(255, 255, 255, 1.0)'
+颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+备注：
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+update-transform	string	否	API3.0.0+
+胶囊整体数据更新位移动效，默认none。
+up: 数据更新位移向上动效
+down: 数据更新位移向下动效
+none：没有数据更新位移动效
+background	string	否	API3.0.0+
+暂不支持
+胶囊背景资源路径，仅支持本地图片资源；
+如果是webp动效，只播放一次；
+默认没有胶囊背景
+number-fixed-width	boolean	否	API3.0.0+
+胶囊中的阿拉伯数字是否使用等宽字体，防止时间文案快速更新的时候造成胶囊宽度变化
+true：使用等宽字体
+false：不使用
+默认数字使用等宽字体
+样式
+不支持自定义样式。
+
+
+子组件
+支持、。
+
+
+事件
+不支持点击事件。
+
+
+方法
+不支持。
+
+
+示例
+
+<card-template entry="notification" category="modular">
+    <compact border-color="">
+          // 流体云胶囊形态
+          <leading>
+              // 胶囊态leading 内容
+          </leading>
+          <trailing>
+              // 胶囊态trailing 内容
+          </trailing>
+      </compact>
+
+    <expanded bg-color="#ff0000" border-color="">
+        // 流体云展开形态
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+expanded
+说明：
+从API 3.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+流体云展开态容器，用来分隔块级元素组, 用来包装展开态信息。
+
+
+属性
+
+名称	类型	必填	描述
+bg-color	string	否	展开态背景色, 支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-bg-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+备注：
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+当配置了背景色，卡片和胶囊就强制取暗色模式下的背景
+支持线性渐变色：例：linear-gradient(45deg,#3D43EB,rgb(255, 112, 67))
+dark-bg-color	string	否	暗色模式背景色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+border-color	string	否	描边颜色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+'rgba(255, 255, 255, 1.0)'
+颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+备注：
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+bg-image	string	否	背景图片的uri，支持png、jpg，svg，不支持网络地址，网络图需要在宿主或js侧更新。
+例如：assets/images/logo.png
+支持$r配置图片资源，支持变量绑定。
+优先级高于bg-color
+注意：
+仅作为卡片整体背景F1元素时，支持设置背景图。
+当配置了整体背景图时，框架会强制切换成暗色模式，取暗色模式下的资源。选择图片时，要保证在暗色模式
+下有良好的视觉展示效果。
+animation-type	string	否	API3.0.0+
+背景动效属性
+none：默认不展示背景动效
+colorFlow：色彩流动动效（从bg-color/dark-bg-color取色）
+如果同时设置了渐变色和流动动效，只展示渐变色
+G1, G2, G3类似的子区域不支持
+样式
+不支持自定义样式。
+
+
+子组件
+支持 <leading>、<center>、<trailing>。
+
+
+事件
+不支持点击事件。
+
+
+方法
+不支持。
+
+
+示例
+
+<card-template entry="notification" category="modular">
+    <compact>
+          // 流体云胶囊形态
+      </compact>
+
+    <expanded bg-color="#ff0000" border-color="">
+        // 流体云展开形态
+          <leading>
+              // 展开态leading 内容
+          </leading>
+          <center>
+              // 展开态trailing 内容
+          </center>
+          <trailing>
+              // 展开态trailing 内容
+          </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+leading
+说明：
+从API 3.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+基础容器组件，做为流体云的固定分区容器，在胶囊态表示左侧信息，在展开态表示顶部信息。
+
+
+属性
+
+名称	类型	必填	描述
+category	string	是	顶部信息分类，详见“模板-顶部信息”章节。
+mirror：左右图文对称
+switches：右侧支持按钮开关
+show-icon-bg	boolean	否	用于控制胶囊态图标是否有白色背景，默认false即默认使用透明无色背景
+true: 表示胶囊图标有白色背景
+false：表示胶囊图标使用透明无色背景
+注：这个控制参数只对图片有效、只针对胶囊生效
+small-margin	boolean	否	控制胶囊内容和边界之间的水平margin
+true: 内容与边界的水平填充为5dp
+image.png
+样式
+不支持自定义样式。
+
+
+子组件
+支持。
+
+
+事件
+不支持点击事件。
+
+
+方法
+不支持。
+
+
+示例
+
+<card-template entry="notification" category="modular">
+    <compact>
+          // 流体云胶囊形态
+          <leading att >
+              // 胶囊态leading 内容
+          </leading>
+          <trailing>
+              // 胶囊态trailing 内容
+          </trailing>
+      </compact>
+
+    <expanded bg-color="#ff0000" border-color="">
+        // 流体云展开形态
+        <leading category="mirror">
+              // 展开态顶部信息
+        </leading>
+        <center>
+              // 展开态核心内容
+        </center>
+        <trailing>
+              // 展开态底部内容
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+center
+说明：
+从API 3.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+基础容器组件，做为流体云展开态的核心信息分区存在。
+
+
+属性
+
+名称	类型	必填	描述
+category	string	是	核心信息分类，详见“模板-核心信息”章节。
+common：通用类，自由度较高，业务可灵活定制需要的信息组合。
+mirror：左右对称信息类，主要用于赛事，航旅、高铁等文本信息对称的业务场景；
+graphic-highlight：强调图形类，D1为非等边图形
+text-highlight：强调文本
+switches：多开关类
+show-large-image	boolean	否	控制D1是否显示large size
+注：只对text-highlight生效
+样式
+不支持自定义样式。
+
+
+子组件
+支持。
+
+
+事件
+不支持点击事件。
+
+
+方法
+不支持。
+
+
+示例
+
+<card-template entry="notification" category="modular">
+    <compact>
+          // 流体云胶囊形态
+      </compact>
+
+    <expanded background-color="#ff0000" border-color="">
+        // 流体云展开形态
+        <leading>
+              // 展开态顶部信息
+        </leading>
+        <center category="switches">
+              // 展开态核心内容
+        </center>
+        <trailing>
+              // 展开态底部内容
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+trailing
+说明：
+从API 3.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+基础容器组件，做为流体云的固定分区容器，在胶囊态表示右侧信息，在展开态表示底部信息。
+
+
+属性
+
+名称	类型	必填	描述
+category	string	是	展开态底部信息分类，详见“模板-底部信息”章节
+multi-texts：多文本组合类
+multi-buttons：多按钮类
+progress：进度条类
+diff-element：三类元素组合类
+divider	boolean	否	是否展示分隔线，默认true显示。
+true: 展示分隔线
+false：不展示分隔线
+注意：仅针对展开态多文本和三类元素生效
+show-icon-bg	boolean	否	用于控制胶囊态图标是否有白色背景，默认false即默认使用透明无色背景
+true: 表示胶囊图标有白色背景
+false：表示胶囊图标使用透明无色背景
+注：这个控制参数只对图片有效
+small-margin	boolean	否	控制胶囊内容和边界之间的水平margin
+true: 内容与边界的水平填充为5dp
+false：（默认）内容与边界的水平填充为8dp
+image.png
+样式
+不支持自定义样式。
+
+
+子组件
+支持。
+
+
+事件
+不支持点击事件。
+
+
+方法
+不支持。
+
+
+示例
+
+<card-template entry="notification" category="modular">
+    <compact>
+          // 流体云胶囊形态
+          <leading>
+              // 胶囊态leading 内容
+          </leading>
+          <trailing>
+              // 胶囊态trailing 内容
+          </trailing>
+      </compact>
+
+    <expanded background-color="#ff0000" border-color="">
+        // 流体云展开形态
+        <leading>
+              // 展开态顶部信息
+        </leading>
+        <center>
+              // 展开态核心内容
+        </center>
+        <trailing category="multi-texts">
+              // 展开态底部内容
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+div
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+基本容器，用来分隔块级元素组, 或用来呈现卡片整体背景信息。
+
+
+属性
+
+名称	类型	必填	描述
+level	string	是	在模板中只能以G1和G2元素分隔不同的元素块存在，可以绑定if else 来控制展示哪部分
+bg-color	string	否	按钮背景色,支持如下格式
+‘#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-bg-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+API3.0.0以下不支持背景色
+仅部分模板内的div支持配置背景色，详见具体模板说明。
+dark-bg-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+API3.0.0以下不支持暗色模式背景色
+bg-image	string	否	背景图片的uri，支持png、jpg，svg，不支持网络地址，网络图需要在宿主或js侧更新。
+例如：assets/images/logo.png支持$r配置图片资源，支持变量绑定。
+
+注意：
+1.仅作为卡片整体背景F元素时，支持设置背景图。
+2.当配置了整体背景图时，框架会强制切换成暗色模式，选择图片时，要保证在暗色模式下有良好的视觉展示效果。
+loop	boolean | number	否	boolean是否循环播放，仅当配置了bg-video时生效，默认播放一次停止。
+true：表示循环播放
+false：播放一次停止
+number:表示播放几次后自动停止，不配置或配置的值<=0时，播放一次
+animation-type	string	否	API3.0.0+
+背景动效属性
+none：默认不展示背景动效
+col<orFlow：色彩流动动效（从bg-color/dark-bg-color取色）
+如果同时设置了渐变色和流动动效，只展示渐变色
+G1, G2, G3类似的子区域不支持
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+支持固定组合组件。
+
+
+事件
+
+不支持点击事件。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<div level="6-1:G1"></div>
+image
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+图片组件，用来渲染展示图片。
+
+
+属性
+
+名称	类型	必填	描述
+level	string	是	不同的模板中level对应的值不同，在作为小组件子组件时无需使用
+src	string	否	图片的uri，支持png、jpg，svg，不支持网络地址，网络图需要在宿主或js侧更新。
+例如：assets/images/logo.png
+支持$r配置图片资源，支持变量绑定。音乐模板spotify暂时不支持webp格式
+alt	string	否	默认图地址，仅支持upk内assets下地址，不支持动态更新
+voice-label	string	否	talkback播报内容，当开启talkback时，绑定的内容会被通过语音形式播报出来，仅在独自为一级信息时支持，作为小组件子组件时不支持。
+transform-effect	string	否	API3.0.0+
+设置图片切换动效
+rotate-l: 3D旋转动效，向左旋转
+rotate-r: 3D旋转动效，向右旋转
+不支持配置加载中的webp动效。动图webp的时候不支持3D旋转
+不支持svg
+仅音乐模板D1* 和组合模板graphic-highlight中D1*使用该属性
+expanded-size	string	否	API3.0.0+
+膨胀态图标支持大尺寸
+sm: 以24dp大小展示图标
+lg：以36dp大小展示图标
+仅支持即时提醒模板膨胀态图标使用该属性
+shape-style	string	否	API3.0.0+
+circle：圆形图片，卡片形态默认值
+round-rectangle：圆角方形图片，胶囊形态默认值
+仅针对组合模板通用类"common"的D1和强调文本"text-highlight"的D1和胶囊A，A0有效，只有普通胶囊生效窄间距
+当胶囊A，A0为圆形时，自动生效窄间距(5)；圆角矩形，自动生效宽间距（8）
+option-show	boolean	否	API3.0.0+
+特定场景可选展示元素，默认为false
+false：特定场景副屏按A-A0-D1-A1展示动图
+true：配置在元素标签上，展示当前元素
+display-animation	string	否	API3.0.0+
+设置图片展示动效
+1，旋转动效
+display-animation="rotate(startAngle, maxAngle, left/right)"
+其中startAngle和maxAngle为[0, 90], 方向为left或right，举例：
+display-animation="rotate(25, 10, right)"
+不支持配置加载中的webp动效。动图webp的时候不支持3D旋转
+仅支持组合模板graphic-highlight中D1*使用该属性
+sweep-light -effect	string	否	API3.0.0+
+设置图扫光动效
+1，start-to-end
+2，end-to-start
+仅支持胶囊A、A0使用该属性
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+不支持。
+
+
+事件
+API3.0.0+
+支持click事件。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<image level="0:A*" src="assets/images/image.jpg"></image>
+text
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+文本组件，当文本超长时会滚动进行展示，每滚动一次会停顿3s。
+
+
+属性
+
+名称	类型	必填	描述
+level	string	是	不同的模板中level对应的值不同
+color	string	否	字体颜色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+dark-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+transform-effect	string	否	文本更新动效，默认值为fade。
+fade：淡入淡出效果
+slide：垂直方向上滑入滑出效果
+none：无更新效果
+
+备注：如果text存在span子组件，子组件的更新动效遵从父组件上的设置。API3.0.0+
+wave：扫光/光波动效
+bounce: 文本膨胀动效
+span不支持扫光/光波和文本膨胀动效
+不支持胶囊使用，button中文本没有上述动效
+voice-label	string	否	talkback播报内容，当开启talkback时，绑定的内容会被通过语音形式播报出来
+max-lines	number	否	API3.0.0+
+文本最大行数，最多展示两行，超出后展示"…"，可选值: 1, 2
+注：未设置时，默认展示一行，超长时展示为跑马灯。
+privacy-data	string	否	API3.0.0+
+设置该属性即代表当前文本为隐私信息
+并且在锁屏入口显示为该属性配置的值
+play	boolean|string	否	API3.0.0+
+控制transform-effect播放和停止逻辑，默认值update在内容更新时触发。
+update：内容更新时触发，默认值
+load：卡片加载时触发
+true：开始播放
+false：停止播放
+class	string	否	API3.0.0+
+sm-font：以小字号展示文本内容(16)
+md-font：以大字号展示文本内容,默认值(20)
+lg-font：以超大字号展示文本内容(26)
+一旦设置，将不受系统字号设置影响
+仅针对组合模板通用类"common"的B1*有效
+font-family	string	否	API3.0.0+
+字体，默认值 auto。
+auto: 模板默认字体
+一旦设置，将不受系统字体设置影响
+仅针对组合模板通用类"common"的B1*有效
+font-weight	number | string	否	API3.0.0+
+可选值：
+number: 100的整数倍，取值范围100-700
+string:
+normal 400 默认值
+medium 500
+bold 600
+一旦设置，将不受系统字体粗细设置影响
+若使用三方字体时，没有这三个字重的，则默认使用标准字重。
+仅针对组合模板通用类"common"的B1*有效
+marquee-repeat-limit	number	否	API3.0.0+
+当文本超长需要跑马灯时，跑马灯动效的执行次数，默认为1次，配置0则不进行跑马灯。
+sweep-light -effect	string	否	API3.0.0+
+设置图扫光动效
+1，inside-out，由胶囊的中心向边缘扫光
+2，outside-in，由胶囊的边缘向中心扫光
+仅支持胶囊B、B0使用该属性
+count-down-time	Array	否	API3.0.0+
+倒计时目标时间[targetTiem, end]
+1，[2024-10-01 13:01:01, end]，在value文本尾端显示倒计时“15:15”
+2，[2024-10-01 13:01:01, start]，在value文本前端显示倒计时“15:15”
+不足一小时，显示15:15；超过一小时，显示23:59:59；如果目标时间已过期，则显示00:00，格式错误显示–:--
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+支持span。
+
+
+事件
+
+不支持事件。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<text level="1:B*" color="#A4A4A4">{{ myText }}</text>
+支持变量和文本混合。例如{{ minute }} : {{ second }}
+
+span
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+概述
+
+作为子组件提供文本修饰能力。
+
+
+属性
+
+名称	类型	必填	描述
+color	string	否	字体颜色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+dark-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+font-family	string	否	字体，默认值 auto。
+auto: 模板默认字体
+monospace: 等宽字体，仅当span内文本全部为数字时生效，效果为每一个数字占据的宽度相等，当某一位数字变化时，span占据的整体宽度不变
+*monospace属性对胶囊不生效
+max-digits	number	否	API3.0.0+
+数字滚动支持预设最大位数，设置位数之后，数字不管多少位，只显示设置的位数，当设置0或者-1时，不显示数字
+比如3位，那么不管数字是多少 只显示3位
+从后往前显示数字，12345预设3位，显示为345
+不支持非纯数字使用
+scroll-effect	boolean	否	API3.0.0+
+数字上滑滚动效果，当值为true的时候开启数字上滑滚动效果
+默认为false
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+不支持。
+
+
+事件
+
+不支持事件。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<text level="2:C">
+   <span color="red">{{ title }}</span>
+   <span color="blue">{{ subtitle }}</span>
+</text>
+button
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+概述
+
+按钮组件。
+
+
+属性
+
+名称	类型	必填	描述
+level	string	是	不同的模板中level对应的值不同
+type	string	否	capsule：胶囊型按钮，带圆角按钮，有背景色和文本；
+circle：圆形按钮，支持放置图标；
+toggle: 开关型按钮;
+
+默认为capsule
+disabled	bool	否	默认值: false
+按钮是否为不可操作状态
+color	string		字体颜色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+特别说明：
+当前type为’capsule’时，color属性作用于文本字体颜色改变；
+当type为’circle’且icon图片类型为’svg’时，color可以改变icon颜色；
+当type为’toggle’且icon-on图片类型为’svg’或者icon-off图片类型为’svg’时，color可以改变icon颜色；
+dark-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+bg-color	string	否	按钮背景色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-bg-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+dark-bg-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+bg-color-on	string	否	API3.0.0+
+按钮背景色,按钮开启时的背景色，支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’（dark-bg-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+仅胶囊型按钮direction= "vertical"支持
+dark-bg-color-on	string	否	API3.0.0+
+暗色模式按钮背景色,按钮开启时的背景色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+'rgba(255, 255, 255, 1.0)'
+仅胶囊型按钮direction= "vertical"支持
+value	string	否	button上显示的文本内容。仅type=capsule时支持
+icon	sring	否	button上展示的的icon路径，支持jpg，png, svg格式。
+仅type=circle时支持。
+checked	bool	否	开关是否为开启状态，仅 type=toggle时支持。默认false
+false: 关闭状态
+true: 开启状态
+API3.0.0+
+仅底部信息多按钮类和三类元素组合类type=capsule支持，除支持上述格式外，还支持webp格式
+仅type=circle时支持。
+transition-on	string	否	开启过程使用的lottie过渡动画，仅 type=toggle时支持。
+transition-off	string	否	关闭过程使用的lottie过渡动画，仅 type=toggle时支持。
+icon-on	string	否	开关型按钮，开启时展示的icon，支持jpg，png, svg格式，仅 type=toggle时支持。
+icon-off	string	否	开关型按钮，关闭时展示的icon，支持jpg，png, svg格式，仅 type=toggle时支持。
+icon-disabled	string	否	开关型按钮，disable状态下时展示的icon，支持jpg，png, svg格式，如果没有，当disable时默认取icon-on，仅 type=toggle时支持。
+voice-label	string	否	talkback播报内容，当开启talkback时，绑定的内容会被通过语音形式播报出来
+direction	string	否	API3.0.0+
+horizontal：按钮里面图标和文本横着排布，默认值
+vertical：竖着排布，只能在组合模板多开关类中使用
+只支持胶囊capsule按钮使用
+lottie-icon	string	否	API3.0.0+
+button上展示的路径，支持lottie格式
+仅type=circle时支持。
+同时配置lottie-icon和icon，lottie-icon生效
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+不支持。
+
+
+事件
+
+支持click事件，对于toggle类型的button，可以通过绑定checked字段来判断组件当前的状态。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<!--type=circle-->
+<button level="4-1:E1" type="circle" icon="{{ $r('images.button3') }}" bg-color="red"></button>
+
+<!--type=capsule-->
+<button level="4-2:E2" type="capsule" value="{{ $t('message.button4') }}"></button>
+
+<!--type=toggle-->
+<button level="3:D*" type="toggle" checked="{{ checked }}" transition-on="./assets/xx/lottie1.json" transition-off="./assets/xx/lottie2.json" onclick="switch"></button>
+流体云button.png
+
+lottie
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+概述
+
+lottie动画组件。
+
+
+属性
+
+名称	类型	必填	描述
+level	string	是	不同的模板中level对应的值不同, 在作为小组件子组件时无需使用
+src	string	否	资源链接或者元数据(仅支持assets内链接) json文件
+autoplay	boolean	否	lottie动画开始播放时机
+boolean：当变为true时，触发动效；变为false时，停止动效
+loop	boolean|number	否	boolean 是否循环播放
+true：表示循环播放
+false：播放一次停止
+number 表示播放几次后自动停止
+voice-label	string	否	talkback播报内容，当开启talkback时，绑定的内容会被通过语音形式播报出来，仅在独自为一级信息时支持，作为小组件子组件时不支持。
+start-time	number	否	API3.0.0+
+播放开始时间，从0开始的毫秒数
+end-time	number	否	API3.0.0+
+播放结束时间，从0开始的毫秒数
+expanded-size	string	否	API3.0.0+
+膨胀态图标支持大尺寸
+sm: 以24dp大小展示图标
+lg：以36dp大小展示图标
+仅支持即时提醒膨胀态图标使用该属性
+shape-style	string	否	API3.0.0+
+circle：圆形图片，卡片形态默认值
+round-rectangle：圆角方形图片，胶囊形态默认值
+仅针对组合模板通用类"common"的D1和强调文本"text-highlight"的D1和胶囊A，A0有效，只有普通胶囊生效窄间距
+当胶囊A，A0为圆形时，自动生效窄间距(5)；圆角矩形，自动生效宽间距（8）
+option-show	boolean	否	API3.0.0+
+暂不支持
+特定场景可选展示元素，默认为false
+false：特定场景副屏按A-A0-D1-A1展示动图
+true：配置在元素标签上，展示当前元素
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+不支持。
+
+
+事件
+
+不支持事件。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<lottie level="1:B*" src="/assets/lottie/lottie.json" autoplay="{{ playLottie }}"> </lottie>
+widget
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+概述
+
+圆环形小组件，支持进度展示。
+
+
+属性
+
+除支持通用属性外，支持如下属性。
+
+名称	类型	必填	描述
+level	string	是	不同的模板中level对应的值不同
+show-progress	boolean	否	是否展示进度条，默认值为true显示进度条
+true: 显示进度条，小组件子元素在小组件内展示；
+false: 不显示进度条，小组件子组件铺满小组件所在范围；
+value	number	是	小组件当前进度值，min <= value <= max
+min	number	否	小组件外层圆环表示进度的最小值，不会展示在界面上，默认 0。
+max	number	否	小组件外层圆环表示进度的最大值，不会展示在界面上，默认 100。
+color	string	否	圆环进度条前景色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+dark-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+bg-color	string	否	圆环进度条背景色,支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-bg-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+dark-bg-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+transform-effect	string	否	小组件进度变化时的过渡动效。
+smooth：平滑过渡，默认值。
+first-none：加载首次无动效，后续使用默认值smooth。
+first-smooth: 加载首次使用smooth，后续更新无动效
+none: 无过渡效果。
+voice-label	string	否	talkback播报内容，当开启talkback时，绑定的内容会被通过语音形式播报出来
+expanded-size	string	否	API3.0.0+
+膨胀态图标支持大尺寸
+sm: 以24dp大小展示图标
+lg：以36dp大小展示图标
+仅支持即时提醒膨胀态图标使用该属性
+show-ring	boolean	否	API3.0.0+
+是否展示小组件光圈
+true: 显示光圈；
+false: 不显示光圈；默认值
+仅支持通用类和强调文本D元素使用该属性
+按钮类小组件，不支持小组件光圈
+option-show	boolean	否	API3.0.0+
+特定场景可选展示元素，默认为false
+false：特定场景副屏按A-A0-D1-A1展示动图
+true：配置在元素标签上，展示当前元素
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+支持image、lottie。
+API3.0.0+
+支持text（特别小的小组件不支持文本，业务方设计时需考虑文本和进度条重合）
+
+
+事件
+API3.0.0+
+支持click事件。（胶囊不允许）
+
+
+方法
+
+不支持。
+
+
+示例
+
+<widget level="0:A*" min="0" max="100" value="{{ value }}">
+   <lottie src="./assets/images/lottie.json"></lottie>
+</widget>
+voice
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+仅通用类模板和对称模板支持。
+
+
+概述
+
+语音播报组件，如果config.json内配置了headset入口，并且当用户佩戴了耳机，组件内容会通过耳机以语音的形式播报出来。
+
+
+属性
+
+不支持。
+
+
+样式
+
+不支持。
+
+
+子组件
+
+不支持。
+
+
+事件
+
+不支持。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<voice>{{ voiceLabel }}</voice>
+
+progress
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+概述
+进度条组件，用来渲染展示图片，仅在通用模板中使用。
+
+
+属性
+
+名称	类型	必填	描述
+level	String	是	不同的模板中level对应的值不同
+color	String	否	进度条前景色, 支持如下格式
+‘#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+API3.0.0+
+支持线性渐变色：例：linear-gradient(90deg,#3D43EB,rgb(255, 112, 67))
+第一个参数必须配置且为90deg
+dark-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+bg-color	String	否	进度条前景色, 支持如下格式
+‘#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-bg-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+dark-bg-color
+string	否	字体颜色,支持如下格
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+step	Number	否	进度条分段数量。
+current-step	Number	否	指示当前进度值percent是在哪一分段内，默认值为1。
+percent	Number	是	当前进度值，取值范围0-100。
+0：位于当前分段起始位置
+100：位于当前分段结束位置
+node-style	String	否	API3.0.0+
+进度条节点样式，默认值discrete。
+discrete：节点和进度条在同一行分离展示
+inside：节点在进度条内
+indicator-style	string	否	API3.0.0+
+指示器图标在进度条上的位置，默认值为inside
+top: 在进度条的上面
+inside：在进度条内
+node-icons	Array	否	API3.0.0+
+节点图标，需要和节点数量一致，和node-labels不能同时使用
+注意：节点样式node-style为inside，不会显示节点图标
+node-labels	Array	否	API3.0.0+
+节点文本，需要和节点数量一致，和node-icons不能同时使用
+text-color	string	否	API3.0.0+
+节点文字点亮颜色, 支持如下格式
+’#ff00ff’ (#rrggbb
+’rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+默认白色，设置主标题之后和主标题颜色一致
+dark-text-color	string	否	API3.0.0+
+暗色模式下节点文字点亮颜色, 支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+默认白色，设置主标题之后和主标题颜色一致
+text-unSelected-color	string	否	API3.0.0+
+节点文字未点亮颜色, 支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+默认颜色rgba(255, 255, 255, .2)
+dark-text-unSelected-color	string	否	API3.0.0+
+暗色模式下节点文字未点亮颜色, 支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+默认颜色rgba(255, 255, 255, .2)
+样式
+不支持自定义样式。
+
+
+子组件
+不支持。
+
+
+事件
+不支持事件。
+
+
+方法
+不支持。
+
+
+示例
+
+<progress level="3-4:D4" percent={{ percent }}></progress>
+swiper
+说明：
+从API 2.1.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+概述
+滑动容器，提供切换子组件显示的能力, 仅音乐模板在锁屏入口支持。
+
+
+属性
+
+名称	类型	默认值	必填	描述
+index	number	0	否	当前在容器中显示的子组件的索引值, 可以绑定变量。
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+支持。
+
+
+事件
+
+名称	参数	描述
+click	-	点击动作触发该事件, 通过在组件上添加onclick="xxx"来绑定事件
+change	{index:currentIndex}	滑动切换时会触发该事件， 通过在组件上添加onchange="xxx"来绑定事件
+
+方法
+
+不支持。
+
+
+示例
+
+<swiper for="{{ data }}" index="{{ index }}" onclick="clickSwiper" onchange="{{ swiperChange }}">
+   <text level="2-1:C1"> {{ $item.content }}</text>
+</swiper>
+
+<data>
+{
+  "uiData": {
+    "data": [
+      "content"："内容"
+    ]
+  },
+  "uiEvent": {
+    "clickSwiper": {
+      "uri":"",
+      "params": {
+        "index": "{{ index }}"
+      }
+     },
+     "swiperChange": {
+       "params": {
+         "index": {{ index }} 
+       }
+     }
+  }
+}
+</data>
+
+spectrum
+说明：
+从API 2.1.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+概述
+频谱组件，用来显示跳动的频谱。
+
+
+属性
+
+名称	类型	必填	描述
+level	String	是	信息级别，和UX模板相对应，不同的模板中level对应的值不同
+value	Array<number>	是	信频谱数据，一维数组，支持0-127整数限制：和UX确认数量限制
+bg-image	String	否	背景图片的uri，支持png、jpg，svg，不支持网络地址，网络图需要在宿主或js侧更新。
+例如：assets/images/logo.png
+支持$r配置图片资源，支持变量绑定。
+bg-color	String	否	按钮背景色, 支持如下格式
+'#ff00ff' (#rrggbb)
+'rgb(255, 0, 255)'
+'rgba(255, 255, 255, 1.0)'
+（dark-bg-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+interval	number	否	数据更新周期，用于计算动画补帧，单位ms， 默认值50
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+不支持。
+
+
+事件
+
+不支持。
+
+
+方法
+
+不支持。
+
+
+示例
+
+<spectrum level="3-1:D1" value={{ spectrumList }} interval="50"></spectrum>
+slider
+说明：
+从API 2.1.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+概述
+滑动条组件，用来拖动调整播放进度。
+
+
+属性
+
+名称	类型	必填	描述
+level	String	是	不同的模板中level对应的值不同
+color	String	否	背景条颜色, 支持如下格式
+'#ff00ff' (#rrggbb)
+'rgb(255, 0, 255)'
+'rgba(255, 255, 255, 1.0)'
+颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+selected-color	<color>	否	已选择颜色, 支持如下格式
+'#ff00ff' (#rrggbb)
+'rgb(255, 0, 255)'
+'rgba(255, 255, 255, 1.0)'
+颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+text-color	String	否	API3.0.0+
+进度条时间文本颜色，支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+dark-text-color	String	否	API3.0.0+
+暗色模式下进度条时间文本颜色，支持如下格式
+’#ff00ff’ (#rrggbb)
+‘rgb(255, 0, 255)’
+‘rgba(255, 255, 255, 1.0)’
+（dark-color不支持）颜色ID，使用颜色资源ID，例如couiColorPrimaryText
+颜色资源ID详见资源ID列表。（API3.0.0+不支持颜色资源ID）
+使用了ID配置颜色，自动支持暗色模式，否则不支持。
+value	<number>	否	滑动条当前值, 音乐播放当前时间进度，单位s, 会在滑动条前展示为MM:SS格式
+duration	<number>	是	滑动条最大值，音乐时长，单位s， 会在滑动条末尾展示为MM:SS格式
+voice-label	string	否	talkback播报内容，当开启talkback时，绑定的内容会被通过语音形式播报出来，仅在独自为一级信息时支持，作为小组件子组件时不支持。
+样式
+
+不支持自定义样式。
+
+
+子组件
+
+不支持。
+
+
+事件
+
+名称	参数	描述
+change	{value: value}	完成一次拖动后触发的事件， 通过在组件上添加onchange="xxx"来绑定事件。参数value会自动传递给宿主或js侧函数，无需开发者声明，如声明，则会覆盖自动传递的值。
+
+方法
+
+不支持。
+
+
+示例
+
+<slider level="3-4:D4" value={{ value }} duration="{{ duration }}"></slider>

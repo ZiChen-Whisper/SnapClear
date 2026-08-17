@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -12,13 +11,14 @@ import com.snapclear.app.R
 import java.io.File
 
 /**
- * 剪贴板与文件删除工具类
+ * 剪贴板与文件回收工具类
  *
  * 提供：
  * - 将图片数据安全复制到系统剪贴板（写入缓存后通过 FileProvider 暴露 URI，
- *   确保删除原文件后剪贴板内容仍然有效）
- * - 删除 MediaStore 中的截图文件（适配分区存储，使用系统删除请求对话框）
- * - 组合操作：先复制再请求删除
+ *   确保原文件移入回收站后剪贴板内容仍然有效）
+ * - 将截图移入系统回收站（最近删除）：MediaStore.createTrashRequest，
+ *   系统 30 天后自动永久清理，用户可在系统相册恢复
+ * - 组合操作：先复制再移入回收站
  */
 object ClipboardHelper {
 
@@ -69,57 +69,50 @@ object ClipboardHelper {
     }
 
     /**
-     * 请求删除 MediaStore 中的截图文件
+     * 请求将截图移入系统回收站（最近删除）
      *
-     * API 30+：使用 MediaStore.createDeleteRequest() 弹出系统确认对话框，
-     * 用户确认后由系统执行删除（异步，本方法在弹出对话框后立即返回）。
+     * API 30+：使用 MediaStore.createTrashRequest() 弹出系统确认对话框，
+     * 用户确认后由系统将文件标记为 IS_TRASHED=1，移入「最近删除」，
+     * 系统 30 天后自动永久清理。用户可在系统相册 / 文件管理中恢复。
      *
-     * API 29-：直接使用 contentResolver.delete()。
-     *
-     * @return true 表示删除请求已发送/执行；false 表示请求失败
+     * @return true 表示移入回收站请求已发送；false 表示请求失败
      */
-    fun requestDeleteScreenshot(context: Context, uri: Uri): Boolean {
+    fun requestTrashScreenshot(context: Context, uri: Uri): Boolean {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                // API 30+：系统删除请求（弹出确认对话框）
-                val pendingIntent = MediaStore.createDeleteRequest(
-                    context.contentResolver,
-                    listOf(uri)
-                )
-                pendingIntent.send()
-                true
-            } else {
-                // API 29-：直接删除
-                context.contentResolver.delete(uri, null, null) > 0
-            }
+            // createTrashRequest 在 API 30+ 可用，minSdk=31 保证可用
+            val pendingIntent = MediaStore.createTrashRequest(
+                context.contentResolver,
+                listOf(uri),
+                true // true = 移入回收站
+            )
+            pendingIntent.send()
+            true
         } catch (e: SecurityException) {
-            android.util.Log.w("ClipboardHelper", "delete SecurityException, trying recovery", e)
+            android.util.Log.w("ClipboardHelper", "trash SecurityException, trying recovery", e)
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val recoverableException = e as? android.app.RecoverableSecurityException
-                    val intentSender = recoverableException?.userAction?.actionIntent?.intentSender
-                    if (intentSender != null) {
-                        context.startIntentSender(intentSender, null, 0, 0, 0)
-                        return true
-                    }
+                val recoverableException = e as? android.app.RecoverableSecurityException
+                val intentSender = recoverableException?.userAction?.actionIntent?.intentSender
+                if (intentSender != null) {
+                    context.startIntentSender(intentSender, null, 0, 0, 0)
+                    return true
                 }
             } catch (e2: Exception) {
                 android.util.Log.e("ClipboardHelper", "Recovery attempt failed", e2)
             }
             false
         } catch (e: Exception) {
-            android.util.Log.e("ClipboardHelper", "requestDeleteScreenshot failed", e)
+            android.util.Log.e("ClipboardHelper", "requestTrashScreenshot failed", e)
             false
         }
     }
 
     /**
-     * 先复制图片到剪贴板，再请求删除原文件
+     * 先复制图片到剪贴板，再将原文件移入系统回收站（最近删除）
      *
      * 流程：
      * 1. 将图片数据复制到缓存并通过 FileProvider URI 放入剪贴板
      * 2. Toast 提示「已拷贝到剪贴板」
-     * 3. 弹出系统删除确认对话框（用户确认后由系统执行删除）
+     * 3. 弹出系统确认对话框，用户确认后文件移入「最近删除」（30 天后清理）
      */
     fun copyAndDelete(context: Context, uri: Uri) {
         val copied = copyImageToClipboard(context, uri)
@@ -130,8 +123,8 @@ object ClipboardHelper {
 
         Toast.makeText(context, "已拷贝到剪贴板", Toast.LENGTH_SHORT).show()
 
-        val deleteRequested = requestDeleteScreenshot(context, uri)
-        if (!deleteRequested) {
+        val trashRequested = requestTrashScreenshot(context, uri)
+        if (!trashRequested) {
             Toast.makeText(
                 context,
                 R.string.toast_copied_delete_failed,

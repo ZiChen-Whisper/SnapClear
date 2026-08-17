@@ -18,8 +18,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- USE_EXACT_ALARM: API 33+ 自动授予，无需用户授权，使 canScheduleExactAlarms() 始终返回 true -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <!-- 悬浮窗权限：后续阶段启用 -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- WakeLock：闹钟唤醒时保持 CPU 运行直至检测完成 -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 开机自启：重启后恢复截图监听 -->
@@ -28,6 +26,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- 全屏通知 Intent：在国产 ROM 上强制弹出通知，绕过后台通知抑制 -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 提升持续通知（Android 16 Live Updates / ColorOS 16 流体云）：让截图通知在状态栏顶部实时显示 -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -55,6 +55,29 @@
             </intent-filter>
         </activity>
 
+        <!-- 权限管理二级菜单（由主页卡片经 OPPO 无缝动画启动） -->
+        <activity
+            android:name=".PermissionsActivity"
+            android:exported="false"
+            android:label="@string/title_permissions"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.SnapClear" />
+
+        <!-- 诊断面板二级菜单（由主页卡片经 OPPO 无缝动画启动） -->
+        <activity
+            android:name=".DiagnosticsActivity"
+            android:exported="false"
+            android:label="@string/title_diagnostics"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.SnapClear" />
+
+        <!-- 截图详情二级菜单（由主页最近截图卡片经 OPPO 无缝动画启动） -->
+        <activity
+            android:name=".ScreenshotDetailActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity"
+            android:theme="@style/Theme.SnapClear" />
+
         <!-- 截图监听前台服务（specialUse 类型无 6 小时超时限制） -->
         <service
             android:name=".screenshot.ScreenshotMonitorService"
@@ -64,6 +87,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Continuous screenshot monitoring for clipboard management" />
         </service>
+
+        <!-- 系统级 MediaStore 变化触发器：应用线程被冻结时仍可唤醒检测 -->
+        <service
+            android:name=".screenshot.ScreenshotContentJobService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <!-- AlarmManager 定时唤醒截图检测 -->
         <receiver
@@ -84,6 +113,11 @@
         <!-- 通知 Action 广播接收器（仅供内部使用） -->
         <receiver
             android:name=".notification.NotificationActionReceiver"
+            android:exported="false" />
+
+        <!-- 流体云倒计时 AlarmManager tick 接收器（仅供内部使用） -->
+        <receiver
+            android:name=".notification.LiveUpdateTickReceiver"
             android:exported="false" />
 
         <!-- FileProvider：用于将缓存图片共享到剪贴板 -->

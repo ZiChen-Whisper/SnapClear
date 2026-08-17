@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 入口卡片图标：诊断虫子（诊断面板） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorPrimary">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M20,8h-2.81c-0.45,-0.78 -1.07,-1.45 -1.82,-1.96L17.71,3.71l-1.42,-1.42 -2.49,2.49C13.21,4.59 12.62,4.5 12,4.5s-1.21,0.09 -1.8,0.28L7.71,2.29 6.29,3.71l2.35,2.35C7.89,6.58 7.27,7.25 6.82,8.03L4,8v2h2.09c-0.05,0.33 -0.09,0.66 -0.09,1v1L4,12v2h2v1c0,0.34 0.04,0.67 0.09,1L4,16v2h2.81c1.04,1.79 2.97,3 5.19,3s4.15,-1.21 5.19,-3L20,18v-2h-2.09c0.05,-0.33 0.09,-0.66 0.09,-1v-1h2v-2h-2v-1c0,-0.34 -0.04,-0.67 -0.09,-1L20,10V8zM14,16h-4v-2h4v2zM14,12h-4v-2h4v2z" />
+</vector>

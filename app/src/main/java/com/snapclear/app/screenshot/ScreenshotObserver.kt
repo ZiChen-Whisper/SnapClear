@@ -22,10 +22,10 @@ import com.snapclear.app.diagnostic.DiagnosticLogger
  * 核心原则：每查到一张图片（无论是否截图）都推进 lastDetectedId，
  * 防止非截图图片阻塞后续检测。
  *
- * lastDetectedId 持久化到 SharedPreferences，进程被系统杀死后
- * 不会重置为 0，避免：
- * 1. 对历史所有截图触发通知（通知风暴）
- * 2. initLastDetectedId 重新基线到当前最大 ID 导致漏检
+ * 通知策略（v2）：只在服务运行期间产生的截图才触发流体云通知。
+ * initLastDetectedId 始终把 lastDetectedId 推进到 MediaStore 当前最大 ID，
+ * 跳过未运行期间的历史截图（避免「通知风暴」）。这些历史截图仍会通过
+ * 「最近截图」面板的独立 MediaStore 查询展示，用户可手动拷贝并删除。
  */
 class ScreenshotObserver(
     private val contentResolver: ContentResolver,
@@ -130,32 +130,20 @@ class ScreenshotObserver(
                     Log.w(TAG, "init() not called before initLastDetectedId() — persistence unavailable")
                 }
 
-                // 从持久化恢复 lastDetectedId
-                val persisted = appContext
-                    ?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                    ?.getLong(KEY_LAST_DETECTED_ID, -1L) ?: -1L
-
-                if (persisted > 0L) {
-                    // 关键修复：恢复持久化值后，【不】推进到 MediaStore 当前最大 ID。
-                    // 进程被系统杀死期间用户新截的图，其 _ID 一定 > persisted，
-                    // 后续 detectAndAdvance 会正确检测到它们。
-                    // 如果这里推进到 max，就会跳过进程死亡期间的截图，导致漏检。
-                    lastDetectedId = persisted
-                    Log.d(TAG, "Restored lastDetectedId from prefs: $persisted (not advancing to MediaStore max)")
-                } else {
-                    // 首次运行或应用数据被清除：推进到当前最大 ID，
-                    // 避免对历史所有图片触发通知（通知风暴）
-                    val cursor = resolver.query(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                        arrayOf(MediaStore.Images.Media._ID),
-                        null, null,
-                        "${MediaStore.Images.Media._ID} DESC"
-                    )
-                    cursor?.use {
-                        if (it.moveToFirst()) {
-                            lastDetectedId = it.getLong(0)
-                            Log.d(TAG, "First run, advanced lastDetectedId to MediaStore max: $lastDetectedId")
-                        }
+                // 设计变更：始终推进到 MediaStore 当前最大 ID。
+                // 只在服务运行期间产生的截图才触发流体云通知，未运行期间的历史截图
+                // 不弹通知（避免打开应用后弹出一堆历史截图通知的「通知风暴」）。
+                // 这些历史截图仍会通过「最近截图」面板的独立 MediaStore 查询展示。
+                val cursor = resolver.query(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Images.Media._ID),
+                    null, null,
+                    "${MediaStore.Images.Media._ID} DESC"
+                )
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        lastDetectedId = it.getLong(0)
+                        Log.d(TAG, "Advanced lastDetectedId to MediaStore max: $lastDetectedId (skip historical notifications)")
                     }
                 }
                 persistLastDetectedId(lastDetectedId)

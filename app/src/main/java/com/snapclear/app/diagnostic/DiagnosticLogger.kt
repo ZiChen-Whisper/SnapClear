@@ -74,6 +74,7 @@ enum class DiagnosticEventType(val tag: String, val label: String) {
     FILE_OBS("FILE", "FileObserver"),
     CONTENT_OBS("COBS", "ContentObserver"),
     ERROR("ERR", "错误"),
+    WARNING("WARN", "警告"),
     INFO("INFO", "信息"),
     TEST("TEST", "测试")
 }

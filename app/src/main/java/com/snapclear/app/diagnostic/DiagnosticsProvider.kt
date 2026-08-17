@@ -1,5 +1,6 @@
 package com.snapclear.app.diagnostic
 
+import android.app.NotificationManager
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
@@ -26,6 +27,8 @@ object DiagnosticsProvider {
         val mediaPermissionGranted: Boolean,
         val exactAlarmGranted: Boolean,
         val batteryOptExempt: Boolean,
+        val fullScreenIntentGranted: Boolean,
+        val promotedNotificationsGranted: Boolean,
         val mediaStoreImageCount: Int,
         val mediaStoreScreenshotCount: Int,
         val mediaStoreMaxId: Long,
@@ -65,6 +68,19 @@ object DiagnosticsProvider {
         val mediaGranted = PermissionManager.checkAllGranted(context)
         val exactAlarmGranted = PermissionManager.canScheduleExactAlarms(context)
         val batteryExempt = PermissionManager.isBatteryOptimizationExempt(context)
+
+        // 全屏通知意图权限（Android 14+ 需用户手动授予，是绕过后台通知抑制的关键）
+        val fullScreenIntentGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val notifManager = context.getSystemService(NotificationManager::class.java)
+            notifManager?.canUseFullScreenIntent() ?: false
+        } else {
+            true
+        }
+
+        // 提升持续通知权限（Android 16+ Live Updates / ColorOS 16 流体云所需）
+        // 注意：POST_PROMOTED_NOTIFICATIONS 是特殊权限，类似 USE_FULL_SCREEN_INTENT，
+        // 必须用 NotificationManager.canPostPromotedNotifications() 检查，不能用 checkSelfPermission
+        val promotedNotificationsGranted = PermissionManager.canPostPromotedNotifications(context)
 
         // MediaStore 统计
         var imageCount = 0
@@ -160,6 +176,8 @@ object DiagnosticsProvider {
             mediaPermissionGranted = mediaGranted,
             exactAlarmGranted = exactAlarmGranted,
             batteryOptExempt = batteryExempt,
+            fullScreenIntentGranted = fullScreenIntentGranted,
+            promotedNotificationsGranted = promotedNotificationsGranted,
             mediaStoreImageCount = imageCount,
             mediaStoreScreenshotCount = screenshotCount,
             mediaStoreMaxId = maxId,

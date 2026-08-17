@@ -1,0 +1,2090 @@
+流体云模板
+流体云模板2.0
+概述
+从API2.0 (ColorOS14.0)开始，泛在服务框架支持流体云开发，流体云作为泛在服务的一种的展现形式。
+OPPO 提供多种卡片模板，开发者通过填充数据接入后，便可让服务在流体云的多入口展现。
+
+流体云的工程结构和普通卡片结构一致，需要在oml文件内声明流体云模板，如下：
+
+<!-- xxx.oml -->
+<template>
+  <card-template entry="notification" category="模板分类">
+       <!-- 模板内容 -->
+  </card-template>
+</template>
+模板分类
+流体云模板支持绑定变量和点击事件，但是不允许开发者修改样式，不支持使用CSS修改布局和样式。
+目前流体云的模板清单如下：
+
+category	描述
+modular	组合模板
+general	通用模板
+symmetry	对称模板
+media	音乐模板
+组合模板
+说明：
+从API 3.0.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+image.png
+
+流体云组合模板包含两种形态，胶囊态(含气泡态)和展开态，每种形态包含不同的区域，开发者可以在这些区域里填充信息，每个区域的填充规则不同，详见后续介绍。
+
+1、组合模板由“顶部信息”+“核心信息”+“底部信息”组合而成，默认展示“核心信息”，可对单个模块的信息进行编辑；
+2、业务可依据实际场景对三块信息进行任意组合，除了“核心信息”可单独显示，其它两者不可单独使用；
+3、若仅需要“顶部信息”和“底部信息”时，“核心信息”可为非必选项；
+4、若业务设计状态栏的卡为彩卡（黑色背景卡属于彩卡），则锁屏、通知中心均使用相同质感及颜色的彩卡，不区分亮暗模式；若业务未设计彩卡，则使用流体云1.0的亮色模式卡和暗色模式卡，锁屏、通知中心的流体云卡片均保持一致，需区分亮暗模式；
+5、允许在状态栏黑色卡片背景的增加动态的背景图；
+6、彩色卡片需要有描边处理，描边支持自定义颜色；
+
+胶囊态示例：
+image.png
+image.png
+
+展开态示例：
+image.png
+
+image.png
+
+1.1、多入口展示示例
+
+入口	展示信息	示例图
+入口1 - 直板/大折/平板状态栏胶囊	A+A0+B+B0 (单个最少要有一个元素）	image.png
+入口2 - 直板/大折/平板状态栏卡片	(顶部信息）D8+C10+（C11+D9 & E20+E21）(核心信息）D1+A1+B1*+C1+G1/G2+C2+C3+G3/G4+(E1*+E2+E3+E4 / D / C20) & C8*+B2*+D7*+D6*/C9* & E5*(D15*+C21*)+E6*(D16*+C22*)+E7*(D17*+C23*)(底部信息）E9*+E10*+E11+E12+E13*/E8*+E14(D10*+C12*)+E15(D11*+C13*) & C14+C15+C16+C17+C18+C19+D15 & D13*+D12 & B3*+D14+E16/E19*+E17+E18(背景信息）F1	image.png
+入口3- 直板/大折/平板锁屏	(顶部信息）D8+C10+（C11+D9 & E20+E21）(核心信息）D1+A1+B1*+C1+G1/G2+C2+C3+G3/G4+(E1*+E2+E3+E4 / D / C20) & C8*+B2*+D7*+D6*/C9* & E5*(D15*+C21*)+E6*(D16*+C22*)+E7*(D17*+C23*)(底部信息）E9*+E10*+E11+E12+E13*/E8*+E14(D10*+C12*)+E15(D11*+C13*) & C14+C15+C16+C17+C18+C19+D15 & D13*+D12 & B3*+D14+E16/E19*+E17+E18(背景信息）F1	image.png
+入口4 - 直板/大折/平板 AOD	A/A0*+B1*+C1/C2/C3 & D1*+B1*+C1/C2/C3 (无A/A0/D1时，显示A1*信息）	image.png-
+入口5 - 外屏底部胶囊	A/A0*+B1*+C1/C2/C3 & D1*+B1*+C1/C2/C3 (无A/A0/D1时，显示A1*信息）	-
+入口6 - 外屏通知中心	A/A0*+B1*+C1/C2/C3 & D1*+B1*+C1/C2/C3 (无A/A0/D1时，显示A1*信息）	-
+入口7 - 手表息屏	A/A0	-
+入口8 - 手表亮屏	A/A0	-
+入口9-耳机播报	A/A0	Z
+1.2、声明模板
+
+<card-template entry="notification" category="modular">
+
+image.png
+
+容器组件	说明
+compact	组合模板胶囊态容器，包含两部分leading和trailing，必须位于流体云card-template根节点，每个组合模板仅有一个。leading：子容器，胶囊内左侧内容trailing：子容器，胶囊内右侧内容注意：当使用compact 容器时config.json入口entry需配置statusbar（反之不是必须）
+expanded	组合模板展开态容器，包含三个部分leading，center和trailing，必须位于流体云card-template根节点，每个组合模板仅有一个。leading：子容器，展开态头部信息center：子容器，展开态核心信息trailing：子容器，展开态底部信息
+注意：1.如需使用voice语音播报、服务图标A1*，请写在上面两个容器同级
+2.服务图标A1*必须配置，但是可以不显示。用作一些场景的兜底展示， 如 AOD、手表、气泡形态等
+
+level	描述	可选组件	必填
+Z	语音播报内容		否
+A1*	服务图标*		是
+自定义背景色
+
+level	描述	可选组件	必填
+F1*	整体背景*		是
+<card-template entry="notification" category="modular">
+    <compact>
+          // 流体云胶囊形态
+          <leading>
+              // 胶囊态左侧信息
+          </leading>
+          <trailing>
+              // 胶囊态右侧信息
+          </trailing>
+      </compact>
+    <expanded bg-color="#000000" border-color="#0000ff" level="F1*" bg-image="{{ $r('images.background') }}">
+        // 流体云展开形态
+        <leading>
+            // 展开态顶部信息
+        </leading>
+        <center category="common">
+            // 展开态核心信息
+        </center>
+        <trailing>
+            // 展开态底部信息
+        </trailing>
+    </expanded>
+    <voice>{{ voiceLabel }}</voice>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+1.3、使用规范
+
+1.3.1、胶囊态
+
+推荐业务场景实例图
+image.png
+
+image.png
+
+1、胶囊左侧和右侧必须各有一个元素（锁头场景除外，允许左侧显示一个），保证视觉平衡，信息状态长度变化时可移动元素位置保证配重；
+2、胶囊单侧不可以有相同的元素，若业务未设计具体位置的，默认左边一个为[A]，右边为[B]；音频胶囊的右侧可为[D2*]；单个图标和文字元素之间支持自动转化；
+3、在同一应用下，在信息发生扭转时，胶囊样式不支持样式变化
+4、[A]、 [A0] 为服务图标/场景图标，包含图片/图标/动图/小组件类型，[B]、 [B0] 为文本信息，元素左右两侧展现不做具体限制可任意组合，信息可以随不同状态发生变化；
+5、业务在设计时要保证流体云 1.0 胶囊中的[A]、[B]数据信息在 2.0 中体现（过长的文本信息须精简），若在 2.0 上未设计[A]、 [A0] 时，1.0胶囊中的[A]将会使用默认的服务图标【A1*】，
+6、若流体云 1.0 上的超长文本信息，在 2.0 设计上使用需要精简至范围内（最多5个字符），若未精简的文本信息直接兼容至 2.0 时，胶囊拉伸变长，优先信息显示完整，若达到胶囊最大宽度后，以“…”形式显示；
+7、若 2.0 中使用的非等边的图形，回落至 1.0 中可使用原有的[A]（已有1.0流体云）或 [A1*]服务图标（新业务）；若 2.0 中使用的圆角矩形，在 1.0 中则需自动裁切成圆形；
+8、胶囊背景为黑色，不允许开发者自定义。
+9、图形元素需使用透明无色背景 ，若业务有特殊场景需求，图形元素的大小或形状可根据业务场景设计
+
+兼容性
+
+1、为保障流体云 2.0 与 1.0 的兼容性，业务在设计或开发时必须提供 [A1*] 服务图标，[A1*] 可以不在胶囊或卡片的前端中显示。
+2、同一实时活动下，在状态发生变化，信息扭转时，胶囊样式不支持样式变化；
+3、当为非居中挖孔时，气泡居中状态栏显示，不论是单个胶囊还是胶囊组都显示“月牙”，在气泡中显示图标，图标依次从[A]→[A0]获取，需判断[A]是否为方形，是方形则正常使用；若不是方形，再判断[A0]；若[A0]也非方形，则显示[A1*]应用图标兜底；若胶囊中无[A]/[A0]时，则显示[A1*]；
+4、若[A]/[A0]为图片，变为防烧屏气泡时，需把[A]/[A0]图片裁切成圆形；若[A]/[A0]为动图或小组件时则显示 [A1*] 信息。
+
+使用规范
+
+level	描述	可选组件	必填	备注
+A*	服务图标/场景图标*	<image><lottie><widget>	是	和A0不可在同侧共存必填，但可以使用if来不显示
+A0	服务图标/场景图标	<image><lottie><widget>	否	和A不可在同侧共存
+B*	文本信息*	<text>	是	和B0不可在同侧共存必填，但可以使用if来不显示
+B0	文本信息	<text>	否	和B不可在同侧共存
+示例：
+
+<template>
+  <card-template entry="notification" category="modular">
+    <compact>
+        <leading>
+            // 胶囊态leading 内容
+            <image level="A*" src="{{ $r('images.logoA') }}"></image>
+            <text level="B*">{{ descriptionB }}</text>
+        </leading>
+        <trailing>
+            // 胶囊态trailing 内容
+            <image level="A0" src="{{ $r('images.logoA0') }}"></image>
+            <text level="B0">{{ descriptionB0 }}</text>
+        </trailing>
+    </compact>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+  </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "descriptionB": "核心信息B",
+     "descriptionB0": "核心信息B0"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+1.3.2、展开态
+
+组合模板具备展开态容器的特性，由三部分组成，分别是"顶部信息"可与“核心信息”和“底部信息”
+
+<expanded level="F1*">
+    <leading>
+        <image src="" alt=""></image>
+        <text></text>
+    </leading>
+    <center category="common">
+        <image src="" alt=""></image>
+        <text></text>
+    </center>
+    <trailing>
+        <image src="" alt=""></image>
+        <text></text>
+    </trailing>
+</expanded>
+1.3.2.1、展开态容器 - 顶部信息
+
+1、"顶部信息"可与“核心信息”和“底部信息”组合使用，不可单独显示；
+2、若需要使用“顶部信息”时，建议两侧至少需有一个元素，元素可自行减少，但不可移动位置；
+3、若有特殊场景需求，可只显示一侧，若不需使用“顶部信息”时，“顶部信息”为可选项。
+
+category	说明	示意图
+mirror	左右图文对称	image.png
+switches	右侧支持按钮开关	image.png
+左右图文对称
+category=“mirror”
+推荐业务场景实例图
+
+image.png
+
+image.png
+
+level	描述	可选组件	必填	备注
+C10	辅助信息 10	<text>	否	
+C11	辅助信息 11	<text>	否	
+D8	图片/图标/动图/小组件8	<image><widget><lottie>	否	
+D9	图片/图标/动图/小组件9	<image><widget><lottie>	否	
+示例
+
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading category="mirror">
+            <image level="D8" src="./assets/images/xxx.png"></image>
+            <text level="C10">{{ C10Text }}</text>
+            <text level="C11"> {{ C11Text }}</text>
+            <image level="D9" src="./assets/images/xxx.png"></image>
+        </leading>
+        <center>
+            // 核心信息
+        </center>
+        <trailing>
+            // 底部信息
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "C10Text": "辅助信息10",
+     "C11Text": "辅助信息11"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+右侧支持按钮开关
+category=“switches”
+image.png
+
+1、若有业务需求，“顶部信息”的右侧可使用按钮开关，最多2个，最少1个；
+
+level	描述	可选组件	必填	备注
+C10	辅助信息 10	<text>	否	-
+D8	图片/图标/动图/小组件8	<image><widget><lottie>	否	-
+E20*	开关 / 圆形按钮 20*	<button>	是	必填
+E21	开关 / 圆形按钮 21	<button>	否	-
+示例
+
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading category="switches">
+            <text level="C10">{{ C10Text }}</text>
+            <image level="D8" src="./assets/images/xxx.png"></image>
+            <button level="E20*" type="circle" icon="{{ E20Btn }}"></button>
+            <button level="E21" type="circle" icon="{{ E21Btn }}"></button>
+        </leading>
+        <center category="common">
+            // 核心信息
+        </center>
+        <trailing>
+            // 底部信息
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "C10Text": "辅助信息10",
+     "E20Btn": "assets/images/text_down.png",
+     "E21Btn": "assets/images/text_down.png"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+1.3.2.2、展开态容器 - 核心信息
+image.png
+
+1、核心信息默认组合模板分为：图形区、信息区、操作区，信息区为必显，图形区和操作区可根据实际场景隐藏；
+2、图形区：主要显示图形，图形大小不支持变动，可隐藏
+3、信息区：主要有核心文本、辅助文本、标签组合而成，最多可三行；
+4、操作区：主要有按钮、图片，二者仅可使用一个；
+
+category	说明	示意图
+common	通用类，自由度较高，业务可灵活定制需要的信息组合。	image.png
+mirror	左右对称信息类，主要用于赛事，航旅、高铁等文本信息对称的业务场景；	image.png
+graphic-highlight	强调图形类，D1为非等边图形	image.png
+text-highlight	强调文本类	image.png
+image.png
+switches	多开关类	image.png
+通用类
+category=“common”
+
+推荐业务场景实例图
+
+image.png
+
+1、[D] 为图片信息，当有 [D] 信息时，不可显示 [E]组按钮；若业务不需要右侧按钮或图片时，右侧信息可为非必选项，但左侧至少有2项元素；
+2、按钮 [E] 支持文本按钮和图形按钮，开发者只能选用其中一种，图形按钮最多支持显示 3 个；若有 [E3] 按钮时，不可有[D1] 元素，[B1]自适应变长 ；
+3、[C1] 信息须简短，当文字过长时，跑马灯显示，跑一次后截断；[B1*]为核心文本信息，文本字号、字重支持变化；
+4、[C2]/[C3] 信息的字段允许获取多个接口信息，最多2个，中间可以用符号隔开，如：“·”、“|”、“空格”；
+5、[G1]/[G2]/ [G3]/[G4]为标签， [G1]与[G2]、[G3]与[G4]两者互斥，仅可使用一个；
+6、标签由图标（[D2]/[D3]/[D4]/[D5]) + 文本([C4]/[C5]/[C6]/[C7]) + 背景([F2]/[F3]/[F4]/[F5]) 组合构成，标签组合显示时，必须要有背景；文本单独显示时，必须要有背景；图标单独显示，可以不要背景；标签必须与[C2]/[C3] 搭配使用；
+7、标签可以不显示，也可以跟随文本整行不显示；
+8、文本按钮【E4】和图形按钮【E1*】混合使用时，最多只能使用一个图形按钮和一个文本按钮；
+9、混合使用时，文本按钮【E4】放置图形按钮左侧或右侧均可；
+10、若文本按钮【E4】放置最右侧时，【E4】可替换【E1*】，与【E2】混合使用，若未配置【E2】时，【E3】移至【E2】位置；
+11、注意：各业务在设计文本按钮与图形按钮混合使用时，需保证文本按钮在各语种下的可视性，若文本按钮可视性差，建议隐藏【D1】元素
+12、[D1] 支持圆形和圆角方形的单独图形
+13、小组件按钮同时最多可使用2个，可单独使用也可与图形（圆形）按钮混合使用；混合使用时最多显示3个按钮（含小组件按钮）；
+14、当小组件按钮和图形（圆形）按钮混合使用时，小组件按钮可直接替换原有图形（圆形）按钮的位置；
+15、不支持中途切换图形（圆形）按钮和小组件按钮
+
+level	描述	可选组件	必填	备注	分组
+B1*	核心信息1*	<text>	是	当文字过长时，跑马灯显示，跑一次后截断	
+C1	辅助信息 1	<text>	否	当文字过长时，跑马灯显示，跑一次后截断	
+C2	辅助信息 2	<text>	否	当文字过长时，跑马灯显示，跑一次后截断	
+C3	辅助信息 3	<text>	否	当文字过长时，跑马灯显示，跑一次后截断	
+D1	图片/图标/动图/小组件1	<image>、<lottie>、<widget>	否	和E3可以通过if else控制显示，不可同时显示	
+C4	辅助信息 4	<text>	否	当文字过长时，跑马灯显示，跑一次后截断	G1
+D2	图片/图标/动图/小组件2	<image>、<lottie>、<widget>	否		G1
+C5	辅助信息 5	<text>	否	当文字过长时，跑马灯显示，跑一次后截断	G2
+D3	图片/图标/动图/小组件3	<image>、<lottie>、<widget>	否		G2
+C6	辅助信息 6	<text>	否	当文字过长时，跑马灯显示，跑一次后截断	G3
+D4	图片/图标/动图/小组件4	<image>、<lottie>、<widget>	否		G3
+C7	辅助信息 7	<text>	否	当文字过长时，跑马灯显示，跑一次后截断	G4
+D5	图片/图标/动图/小组件5	<image>、<lottie>、<widget>	否		G4
+D	图片/图标/动图/小组件	<image>、<lottie>、<widget>	否	与E1*、E2、E3、E4可以通过if else控制显示，不可同时显示
+和D18可切换，中间展示	
+D18	图片/图标/动图/小组件18	<image>、<lottie>、<widget>	否	与E1*、E2、E3、E4可以通过if else控制显示，不可同时显示
+和D可切换，右上角展示	
+E1	开关 / 圆形按钮 1/小组件	<button>、<widget>	否	和E4可同时显示。和D可以通过if else控制显示，不可同时显示	
+E2	开关 / 圆形按钮 2/小组件	<button>、<widget>	否	和E4可同时显示。和D可以通过if else控制显示，不可同时显示	
+E3	开关 / 圆形按钮 3/小组件	<button>、<widget>	否	和E4可同时显示。与D，D1可以通过if else控制显示，不可同时显示，B1*自适应变长	
+E4	胶囊形按钮4	<button>	否	与E1*、E2、E3、D可以通过if else控制显示，不可同时显示	
+示例
+
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center category="common">
+            <text level="B1*">{{ B1Text }}</text>
+            <text level="C1">{{ C1Text }}</text>
+            <text level="C2">{{ C2Text }}</text>
+            <text level="C3">{{ C3Text }}</text>
+            <image level="D1" src="assets/images/logo.png"></image>
+            <button level="E1*" type="circle" icon="{{ E1Btn }}"></button>
+            <button level="E2" type="circle" icon="{{ E2Btn }}"></button>               
+            <div level="G2" bg-color="">
+              <text level="C5">{{ C6Text }}</text>
+              <image level="D3" src="assets/images/d4.png"></image>
+            </div>
+           <div level="G4">
+              <text level="C7">{{ C7Text }}</text>
+              <image level="D5" src="assets/images/d5.png"></image>
+            </div>
+        </center>
+        <trailing>
+            // 底部信息
+        </trailing>    
+    </expanded>
+     <voice>{{ voiceLabel }}</voice>
+     <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+   </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {     
+     "B1Text": "核心信息B1",
+     "C1Text": "辅助信息 1",
+     "C2Text": "辅助信息 2",
+     "C3Text": "辅助信息 3",
+     "C4Text": "辅助信息 4",
+     "C6Text": "辅助信息 6",
+     "C7Text": "辅助信息 7",
+     "E1Btn": "assets/images/d5.png",
+     "E2Btn": "assets/images/d5.png",
+     "voiceLabel": "voiceLabel"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+左右对称信息类
+category=“mirror”
+
+推荐业务场景实例图
+
+image.png
+
+image.png
+
+1、核心信息对称主要用于赛事，航旅、高铁等文本信息对称的业务场景；
+2、核心信息对称的场景下，所有元素均为必选项；
+3、[D1*] /[C8*]、[D6*] /[C9*]只能使用其中一种元素，前后元素需保持为同一类别；
+4、中间区域样式（[B1*] 、[B2*]、[D7*]、[C3*]）为默认赛事信息，业务需根据实际场景进行设计;
+
+level	描述	可选组件	必填	备注
+B1*	核心信息1*	<text>	是	
+B2*	核心信息2*	<text>	是	
+C1*	辅助信息 1*	<text>	是	
+C2*	辅助信息 2*	<text>	是	
+C3*	辅助信息 3*	<text>	是	
+D1*	图片/图标/动图/小组件1*	<image>、<lottie>、<widget>	是	与C8*，C9*不可共存
+D6*	图片/图标/动图/小组件6*	<image>、<lottie>、<widget>	是	与C8*，C9*不可共存
+D7*	图片/图标/动图/小组件7*	<image>	是	只为PNG 透明切图，暂为固定冒号切图
+C8*	辅助信息 8*	<text>	是	与D1*，D6*不可共存
+C9*	辅助信息 9*	<text>	是	与D1*，D6*不可共存
+示例
+
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center category="mirror">
+            <text level="B1*">{{ B1Text }}</text>
+            <text level="B2*">{{ B2Text }}</text>
+            <text level="C1*">{{ C1Text }}</text>
+            <text level="C2*">{{ C2Text }}</text>
+            <text level="C3*">{{ C3Text }}</text>
+            <image level="D1*" src="assets/images/xxx.png"></image>
+            <lottie level="D6*" src="./assets/lottie/lottie.json"></lottie>
+            <image level="D7*" src="assets/images/xxx.png"></image>
+        </center>
+        <trailing>
+            // 底部信息
+        </trailing>
+    </expanded>
+    <voice>{{ voiceLabel }}</voice>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+   </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "B1Text": "核心信息B1",
+     "B2Text": "核心信息B2",
+     "C1Text": "辅助信息 1",
+     "C2Text": "辅助信息 2",
+     "C3Text": "辅助信息 3",
+     "voiceLabel": "voiceLabel"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+强调图形类
+category=“graphic-highlight”
+
+推荐业务场景实例图
+
+image.png
+
+1、[D1]为非等边图形，支持图片/图标/动图，仅可显示 [B1*] 信息，信息须简短，当文字过长时，跑马灯显示，跑一次后截断显示；
+2、若 [B1*]文本长度大于一个按钮长度时，右侧不要放置按钮，结合“底部信息”中的按钮使用。
+3、按钮 [E] 支持文本按钮和图形按钮，开发者只能选用其中一种，图形按钮最多支持显示2个；
+
+level	描述	可选组件	必填	备注
+B1*	核心信息1*	<text>	是	当文字过长时，跑马灯显示，跑一次后截断
+C2	核心信息2*	<text>	否	当文字过长时，跑马灯显示，跑一次后截断
+D1*	图片/图标/动图*	<image>、<lottie>	是	
+E1	圆形按钮 1/小组件	<button>、<widget>	否	当E2存在时，为必填。与E4可以通过if else控制显示，不可同时显示
+E2	圆形按钮 2/小组件	<button>、<widget>	否	与E4可以通过if else控制显示，不可同时显示
+E4	胶囊按钮4	<button>	否	与E1、E2可以通过if else控制显示，不可同时显示
+示例
+
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center category="graphic-highlight">
+            <text level="B1*">{{ B1Text }}</text>       
+            <image level="D1*" src="assets/images/xxx.png"></image>
+            <button level="E1" type="circle" icon="{{ E1Btn }}"></button>
+            <button level="E2" type="circle" icon="{{ E2Btn }}"></button>
+        </center>
+        <trailing>
+            // 底部信息
+        </trailing>
+    </expanded>
+    <voice>{{ voiceLabel }}</voice>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+  </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "B1Text": "核心信息B1",
+     "E1Btn": "assets/images/text_down.png",
+     "E2Btn": "assets/images/text_down.png",
+     "voiceLabel": "voiceLabel"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+强调文本类
+category=“text-highlight”
+
+推荐业务场景实例图
+image.png
+
+1、按钮 [E] 支持文本按钮和图形按钮，开发者只能选用其中一种，图形按钮最多支持显示 3 个；若有 [E3] 按钮时，不可有[D1] 元素，[B1]自适应变长 ；
+2、[D] 为图形信息，当有 [D] 信息时，不可显示 [E]组按钮；若业务不需要右侧按钮或图片时，右侧信息可为非必选项，但左侧至少有2项元素；
+3、B1或C2信息支持换行显示时为必选项，最大支持2行，超过2行“…”显示，二者只能其一进行换行显示；
+4、文本按钮【E4】和图形按钮【E1】混合使用时，最多只能使用一个图形按钮和一个文本按钮；
+5、混合使用时，文本按钮【E4】放置图形按钮左侧或右侧均可；
+6、若文本按钮【E4】放置最右侧时，【E4】可替换【E1*】，与【E2】混合使用，若未配置【E2】时，【E3】移至【E2】位置；
+7、注意：各业务在设计文本按钮与图形按钮混合使用时，需保证文本按钮在各语种下的可视性，若文本按钮可视性差，建议隐藏【D1】元素。
+8、[D1] 支持圆形和圆角方形的单独图形
+
+level	描述	可选组件	必填	备注
+B1*	核心信息1*	<text>	是	1.当B1支持换行时，最大支持2行，超过2行“…”显示。[C2] 信息当文字过长时，跑马灯显示，跑一次后截断显示；
+2.当C2支持换行时，最大支持2行，超过2行“…”显示。[B1] 信息当文字过长时，跑马灯显示，跑一次后截断显示；
+C2	辅助信息 2	<text>	否	1.当B1支持换行时，最大支持2行，超过2行“…”显示。[C2] 信息当文字过长时，跑马灯显示，跑一次后截断显示；
+2.当C2支持换行时，最大支持2行，超过2行“…”显示。[B1] 信息当文字过长时，跑马灯显示，跑一次后截断显示；
+D1	图片/图标/动图/小组件1	<image>、<lottie>、<widget>	否	与E3可以通过if else控制显示，不可同时显示
+E1	开关 / 圆形按钮 1/小组件	<button>、<widget>	否	右侧需要按钮或按钮E2、E3存在时为必填
+E2	开关 / 圆形按钮 2/小组件	<button>、<widget>	否	
+E3	开关 / 圆形按钮 3/小组件	<button>、<widget>	否	与D1可以通过if else控制显示，不可同时显示
+E4	胶囊按钮4	<button>	否	与E1*、E2、E3、D可以通过if else控制显示，不可同时显示
+D	图片/图标/动图/小组件	<image>、<lottie>、<widget>	否	与E1*、E2、E3、E4可以通过if else控制显示，不可同时显示
+和D18可切换，中间展示
+D18	图片/图标/动图/小组件18	<image>、<lottie>、<widget>	否	与E1*、E2、E3、E4可以通过if else控制显示，不可同时显示
+和D可切换，右上角展示
+示例
+
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center category="text-highlight">
+            <text level="B1*">{{ B1Text }}</text>     
+            <text level="C2">{{ C2Text }}</text>  
+            <image level="D1" src="assets/images/xxx.png"></image>
+            <button level="E1*" type="circle" icon="{{ E1Btn }}"></button>
+            <button level="E2" type="circle" icon="{{ E2Btn }}"></button>
+        </center>
+        <trailing>
+            // 底部信息
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+  </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "B1Text": "核心信息B1",
+     "C2Text": "核心信息C2",
+     "E1Btn": "assets/images/xxx.png",
+     "E2Btn": "assets/images/xxx.png"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+多开关类
+category=“switches”
+
+推荐业务场景实例图
+image.png
+
+image.png
+
+1、【[D15*]+[C1*] 】/ 【[D16*]+[C2*]】 / 【[D17*]+[C3*]】分别为组合开关按钮，点击单个组合的整体区域可直接开启或关闭；[D15*]、[D16*]、[D17*]支持图片/图标/动图
+2、当组合开关开启时，组合开关底部有颜色强调，开关对应的描述文字[C1*]、[C2*]、[C3*]信息依据开启后的文字信息内容发生变化[C21*]、[C22*]、[C23*]；
+3、[C1*]、[C2*]、[C3*]或[C21*]、[C22*]、[C23*]支持文本换行，最多显示二行，超过二行时“…”显示；
+组合开关支持可开启多个，具体可开启的数量，需按照业务需求设计而定；
+4、"底部信息"依据业务对单个组合开关的配置是否需要显示，“底部信息”支持与“核心信息”分离；
+
+level	描述	可选组件	必填	备注	分组
+E5*	开关 / 按钮 5*	<button>	是	D15处为按钮图标icon；C1处为按钮文字value；C21处为按钮文字value，c1,c21无实际含义，开关开启关闭只需value值的更新	由[D15]+[C1]/[C21]组成；D15支持；[C1*]、[C21*]、支持文本自动换行，最多显示二行，超过二行时“…”显示
+E6*	开关 / 按钮 6*	<button>	是	D16处为按钮图标icon；C2处为按钮文字value；C22处为按钮文字value；c2,c22无实际含义，开关开启关闭只需value值的更新	由[D16]+[C2]/[C22]组成；D16支持<image?;[C2*]、[C22*]、支持文本自动换行，最多显示二行，超过二行时“…”显示
+E7*	开关 / 按钮 7*	<button>	是	D17处为按钮图标icon;C3处为按钮文字value;C23处为按钮文字value;c3,c23无实际含义，开关开启关闭只需value值的更新	由[D17]+[C3]/[C23]组成;D17支持[C3*]、[C23*]、支持文本自动换行，最多显示二行，超过二行时“…”显示
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+            
+        </leading>
+        <center category="switches">
+            <button icon="{{ D15  }}" type="capsule" value="{{ C21 }}" 
+            disabled="true" level="E5*" direction="vertical"></button>
+            <button icon="{{ D16 }}" type="capsule" value="{{ C2 }}" 
+            level="E6*" direction="vertical"></button>
+            <button icon="{{ D17 }}" type="capsule" value="{{ C3 }}" 
+            level="E7*" direction="vertical"></button>
+        </center>
+        <trailing>
+            // 底部信息
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+  </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "C21": "辅助信息C21",
+     "C2": "辅助信息C2",
+     "C3": "辅助信息C3",
+     "D15": "assets/images/logo.png",
+     "D16": "assets/images/a1.png",
+     "D17": "assets/images/d5.png"    
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+1.3.2.3、展开态容器 - 底部信息
+
+“底部信息”可为文本信息组合、进度条组合、按钮开关组合、三类元素组合，四类组合互斥，仅可用其中一类；
+“底部信息”可与“核心信息”和“顶部信息”组合使用，不可单独显示；
+
+category	说明	示意图
+multi-texts	多文本组合类	image.png
+multi-buttons	多按钮类	image.png
+progress	进度条类	image.png
+diff-element	三类元素组合类	image.png
+progress-text	进度条/分割线 + 文本类	image.png
+image.png
+多文本组合
+category=“multi-texts”
+
+推荐业务场景实例图
+image.png
+
+image.png
+
+1、文本最多可使用2行3列；若使用2行文本信息时，重要的信息可放置上行，也可放置再下行；
+2、若使用多列时，行数要保持一致，不可左边2行，右边1行；
+3、分割线默认显示，各业务可根据实际场景选用；
+
+注意：若使用多列时，行数要保持一致，不可左边2行，右边1行，列数不一致的那个不显示，上面两个，下面三个，那就只能展示两个，必须成对出现
+
+level	描述	可选组件	必填	备注
+C14	文本信息14	<text>	否	
+C15	文本信息15	<text>	否	
+C16	文本信息16	<text>	否	
+C17	文本信息17	<text>	否	
+C18	文本信息18	<text>	否	
+C19	文本信息19	<text>	否	
+B4/E16 +C25	文本信息B4
+文本信息C25	<text>/<button><text>	否	image.png
+示例
+
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center>
+            //核心信息
+        </center>
+        <trailing category="multi-texts">
+            <text level="C14">{{ C14text }}</text>  
+            <text level="C15">{{ C15text }}</text> 
+            <text level="C16">{{ C16text }}</text> 
+            <text level="C17">{{ C17text }}</text> 
+            <text level="C18">{{ C18text }}</text> 
+            <text level="C19">{{ C19text }}</text> 
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+   </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "C14text": "文本信息C14",
+     "C15text": "文本信息C15",
+     "C16text": "文本信息C16",
+     "C17text": "文本信息C17",
+     "C18text": "文本信息C18",
+     "C19text": "文本信息C19"
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+多按钮类
+category=“multi-buttons”
+
+image.png
+
+1、[E9*]、[E10*]、[E8*/E13*]为必选信息，当不需使用底部按钮时，底部按钮为可选项。
+2、按钮可以多种组合，具体可见右侧排列，[E8*] 和[E13*] 不可并存，仅可显示一个；
+3、当底部按钮要使用5个图形按钮时，5个按钮均为必选信息，按钮之间的间距为自适应；
+4、当[E14]或[E15]只展示一个时，单个按钮为自适应宽度，若[E14]/[E15]的信息内容只有文本时，为文本按钮，若[E14]/[E15]的信息内容有图标+文本时，为图文组合按钮，[E14]/[E15]（即D10+C12/D11+C13）支持图标+文本组合形式的按钮；
+
+注：D10+C12/D11+C13仅为展示胶囊按钮可以使用图标+文本组合形式，实际并无这些标签level
+
+level	描述	可选组件	必填	备注
+E8*	胶囊型按钮8*	<button>	是	与E13*,E12可以通过if else控制显示，不可同时显示
+E9*	开关 / 圆形按钮 9*/小组件	<button>、<widget>	是	
+E10*	开关 / 圆形按钮 10*/小组件	<button>、<widget>	是	
+E11*	开关 / 圆形按钮 11*/小组件	<button>、<widget>	否	
+E12*	开关 / 圆形按钮 12*/小组件	<button>、<widget>	否	与E8*可以通过if else控制显示，不可同时显示
+E13*	开关 / 圆形按钮 13*/小组件	<button>、<widget>	是	与E8*可以通过if else控制显示，不可同时显示
+E14*	胶囊型按钮14*	<button>	否	与E8*,E9*,E10*,E11,E12,E13可以通过if else控制显示，不可同时显示
+E15*	胶囊型按钮15*	<button>	否	与E8*,E9*,E10*,E11,E12,E13可以通过if else控制显示，不可同时显示
+示例
+
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center>
+            //核心信息
+        </center>
+        <trailing category="multi-buttons">
+            <button level="E9*" type="circle" icon="{{ E9Btn }}"></button>  
+            <button level="E10*" type="circle" icon="{{ E10Btn }}"></button>
+            <button level="E11" type="circle" icon="{{ E11Btn }}"></button> 
+            <button level="E12" type="circle" icon="{{ E12Btn }}"></button> 
+            <button level="E13*" type="circle" icon="{{ E13Btn }}"></button>
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+  </card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "E9Btn": "assets/images/text_down.png",
+     "E10Btn": "assets/images/text_down.png",
+     "E11Btn": "assets/images/text_down.png",
+     "E12Btn": "assets/images/text_down.png",
+     "E13Btn": "assets/images/text_down.png"  
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+进度条类
+category=“progress”
+
+推荐业务场景实例图
+image.png
+
+image.png
+
+1、进度条提供默认样式：由 [D13*] 、 [D12] 构成，有进度条时 [D13*] 必选，提供一个间距接口，支持业务定义 [D12] 距右侧的剩余距离，进度条支持业务定义 2-4 个关键节点（包含起始点）；
+2、若固定样式无法满足业务需求时，可对节点的颜色和形状、进度的颜色、图形的颜色和形状进行自定义设计；
+3、若对改变颜色和形状无法满足需求是，可自行设计整体进度条；
+
+level	描述	可选组件	必填	备注
+D12	图片/图标/动图 12	<image>、<lottie>	否	
+D13*	进度条13*	<progress>	是	
+示例
+
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center>
+            //核心信息
+        </center>
+        <trailing category="progress">
+            <image level="D12" src="assets/images/xxx.png"></image>
+            <progress level="D13*" percent="{{ percent }}"></progress>
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+ </card-template>
+</template>
+<data>   
+{
+   "uiData": {
+     "percent": 60
+     
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+三类元素组合类
+category=“diff-element”
+
+image.png
+
+1、右侧按钮 [E] 支持文本和图形按钮，开发者只能选用一种，图形按钮最多支持显示 3 个；
+2、若有 [E17] 按钮时，不可有[D14] 元素，[B3*]自适应变长 ；
+3、[D14] 为非等边图形，支持图片/图标/动图/小组件；
+4、[D14]依据高度进行等比缩放进行自适应宽度，[B3*]的宽度可依据[D14] 宽度+按钮宽度进行自适应
+5、[B3*]可根据业务场景，在不需要显示时可为非必选项；
+6、[B3*]信息长度达到最大长度时，跑马灯一次后，截断显示
+7、分割线默认显示，各业务可根据实际场景选用
+
+level	描述	可选组件	必填	备注
+B3*	核心信息 3*	<text>	是	当文字过长时，跑马灯显示，跑一次后截断
+C24*	辅助信息 24*	<progress>	是	
+D14	图片/图标/动图/小组件14	<image>、<lottie>、<widget>	否	与E16、E17、E18可以通过if else控制显示，不可同时显示
+E16	胶囊形按钮16	<button>	否	与E17、E18、E19可以通过if else控制显示，不可同时显示
+E17	开关 / 圆形按钮 17/小组件	<button>、<widget>	否	与D14可以通过if else控制显示，不可同时显示
+E18	开关 / 圆形按钮 18/小组件	<button>、<widget>	否	与D14可以通过if else控制显示，不可同时显示
+E19	开关 / 圆形按钮 19/小组件	<button>、<widget>	是	与D14可以通过if else控制显示，不可同时显示
+// index.oml
+<template>
+  <card-template entry="notification" category="modular">
+    <expanded level="F1*">
+        <leading>
+            // 顶部信息
+        </leading>
+        <center>
+            //核心信息
+        </center>
+        <trailing category="diff-element">
+            <text level="B3*">{{ B3text }}</text>
+            <text level="C24*">{{ C24text }}</text>
+            <image level="D14" src="assets/images/xxx.png"></image>
+            <button level="E19*" type="circle" icon="{{ E19Btn }}"></button>
+        </trailing>
+    </expanded>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+</template>
+
+<data>   
+{
+   "uiData": {
+     "B3Text": "核心信息B3",
+     "C24Text": "文本信息C24",
+     "E19btn": "assets/images/text_down.png" 
+   },
+   "uiEvent": {
+
+    }
+}
+</data>
+进度条/分割线+ 文本组合类
+category=“progress-text”
+
+image.png
+
+level	描述	可选组件	必填	备注
+C25*	核心信息 *	<text>	是	当文字过长时，跑马灯显示，跑一次后截断
+B4*	核心信息 *	<text>	是	配置alarm-time属性，可实现引擎按上述格式展示当前时间
+音乐模板
+
+
+1、“*”表示为必选信息，无“*”为可选信息；
+
+2、[A*]、[B*] 主要用于状态栏胶囊/气泡的展示，[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立；
+
+3、整体布局由[ G1显示区域 ] + [ G2操作区域 ] 两部分构成，G1显示区域数据为自动获取；
+
+4、[ D1* ]可为动图或图片，主要获取专辑图片，当未获取时显示音乐占位图，胶囊也同步展示位占位图；
+
+5、[ D2* ] 信息为ICON展示区域，可为动图或图片，[ A1* ] 主要展示应用品牌；
+
+6、[ D3* ] [ C2* ] [ C3* ] 区域为播放时间及播放进度显示，滑动/点击可调整播放进度；播放进度长按是高度发生变化；
+
+7、[ E ]为图形按钮， 建议使用简单易懂的图形按钮，避免使用表意模糊的图形按钮，[ E1* ] [E2* ] [E3* ] 为主操作按钮，[ E4* ]为媒介图标 ，可根据连接的播放介质不同而变化图，[ E5 ]为操作补充位非必显，便于后期扩展。
+
+8、[ F ] [ F1 ]胶囊/卡片背景为高斯模糊，不允许开发者自定义；
+9、封面支持大小缩放和置灰
+
+声明模板
+// xxx.oml
+<card-template entry="notification" category="media">
+使用规范
+信息	描述	level	组件类型	必填	备注
+A*	图片/图标/动图/小组件	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示
+B*	附件信息	1:B*	<text>	是	
+A1*	服务图标	0-1：A1*	<image>		
+B1*	核心信息1	1-1:B1*	<text>	是	
+C1*	辅助信息	2-1:C1*	<text>	否	
+D1*	图片/图标/动图	3-1:D1*	<image>``<lottie>	是	
+D2*	图片/图标/动图/小组件/频谱	3-2:D2*	<image>``<lottie>``<widget>``<spectrum>	是	
+D3*	进度条	3-3:D3*	<slider>	是	
+E1*	主要按钮 1*	4-1:E1*	<button>	是	
+E2*	主要按钮 2*	4-2:E2*	<button>	是	
+E3*	主要按钮 3*	4-3:E3*	<button>	是	
+E4*	辅助按钮 4*	4-4:E4*	<button>	是	
+E5	补位按钮 5	4-5: E5	<button>	否	
+Z	语音播报内容		<voice>	否	
+
+信息流转
+模板对接入的信息进行分级编码，信息基于编码可以流转到其他入口，并自动排版；做到一次接入，多端露出，信息在不同的入口露出规则如下:
+
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*+D2*+F*
+入口2 - 直板/大折/平板状态栏卡片	A1*+D1*+B1*+C1*+D2*+C2*+D3*+C3*+E1*+E2*+E3*+E4*+F1*+E5
+入口3 - 直板/大折/平板状态栏气泡	A*+F*
+入口4 - 直板/大折/平板锁屏	A1*+D1*+B1*+C1*+D2*+C2*+D3*+C3*+E1*+E2*+E3*+E4*+F1*+E5
+入口5 - 直板/大折/平板 AOD	D1*+A1*+B1*+C1*+D2*
+入口6 - 外屏底部胶囊	D1*+B1*+C1*+D2*+E1*+E2*+E3*
+入口7 - 外屏通知中心	D1*+B1*+C1*+D2*+E1*+E2*+E3*
+入口8 - 外屏息屏	D1*+B1*+C1*+D2*
+入口9 - 手表息屏	D1*
+入口10 - 手表亮屏	D1*
+入口11 - 手表抬手亮屏	D1*
+入口12 - 耳机播报	Z
+示例
+<template>
+  <card-template entry="notification" category="media">
+     <swiper data="{{ playerArr }}" onchange="changeItem" onclick="clickSwiper" index="{{ index }}">
+       <div>
+         <image level="0:A*" src="{{ $item.smallPic}}"></image>
+         <text level="1:B*">{{ $item.title }}</text>
+         <image level="0-1:A1*" src="{{ $r('images.logo') }}"></image>
+         <text level="1-1:B1*">{{ $item.songName }}</text>
+         <text level="2-1:C1*">{{ $item.artist }}</text>
+        
+         <image text level="3-1:D1*" src="{{ $item.picture }}"></image>
+         <spectrum level="3-2:D2*" value="{{ $item.spectrumData }}"></spectrum>
+         <slider level="3-3:D3*" value="{{ $item.value }}" duration="{{ $item.duration }}" onchange="onSliderChange"></slider >
+
+         <button level="4-1:E1*" type="circle" onclick="preBtnOnClick" icon="{{ $r('images.previous') }}" ></button>
+         <button level="4-2:E2*" type="circle" onclick="playOrPauseBtnOnClick" icon="{{ $r('images.pause') }}" ></button>
+         <button level="4-3:E3*" type="circle" onclick="nextBtnOnClick" icon="{{ $r('images.next') }}" ></button>
+         <button level="4-4:E4*" type="circle" onclick="deviceBtnOnClick" icon="{{ $r('images.ear') }}" ></button>
+         
+         <voice>{{ voiceLabel }}</voice>
+       </div>
+     </swiper>
+  </card-template>
+</template>
+
+<data>
+{
+  "uiData": {
+    "index": "0",
+    "jumplink": "",
+    "playerArr": [
+        {
+          "spectrumData": [1, 50, 20, 30, 41], // 
+          "smallPic": "./assets/images/xx.png",
+          "title": "Barbie The Album",
+          "logo": "./assets/images/logo.png",
+          "songName": "Barbie The Album",
+          "picture": "./assets/images/xx.png",
+          "artist":"Various artists",
+          "value": 139,
+          "uri": "xxx",
+          "duration": 337,
+          "mediaId": "111"
+        },
+        {
+          "spectrumData": [1, 50, 20, 30, 41], // 
+          "smallPic": "./assets/images/xx.png",
+          "title": "Barbie The Album",
+          "logo": "./assets/images/logo.png",
+          "songName": "Barbie The Album",
+          "picture": "./assets/images/xx.png",
+          "artist":"Various artists",
+          "value": 139,
+          "uri": "xxx",
+          "duration": 337,
+          "mediaId": "111"
+        },
+        {},
+        {},
+    ]
+        "playerArr1": [
+        {
+          "spectrumData": [1, 50, 20, 30, 41], // 
+          "smallPic": "./assets/images/xx.png",
+          "title": "Barbie The Album",
+          "logo": "./assets/images/logo.png",
+          "songName": "Barbie The Album",
+          "artist":"Various artists",
+          "value": 139,
+          "uri": "xxx",
+          "duration": 337,
+          "mediaId": "111"
+        },
+        {
+        },
+        {},
+        {},
+    ]
+  },
+  
+  "uiEvent": {
+     "changeItem": {
+        "type": "message",
+        "uri": "com.xxx.xxprovider",
+        "params": {
+           "index": "{{ index }}",// 获取切换到第几个播放器
+           "mediaId": "{{ $item.mediaId }}",
+         }
+     },
+     "onSliderChange": {
+        "type": "message",
+        "uri": "com.xxx.xxprovider",
+        "params": {
+           "mediaId": "{{ $item.mediaId }}",
+           "index": "{{ index }}", // 获取当前点击的是第几个播放器
+           "value": <number>   // 自动传递, 无需开发者声明
+        }
+     },
+     "clickSwiper": {
+       "type": "deeplink",
+        "uri": "com.xxx.Action",
+        "params": {
+          "aaa": "{{ 111 }}",
+          "playerArr": "{{ playerArr }}"
+          "index": "{{ index }}",// 获取当前点击的是第几个播放器
+        }
+     },
+     "preBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      },
+      "playOrPauseBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      },
+      "nextBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      },
+      "deviceBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      }
+  }
+}
+</data>
+
+1、新增波谱组件
+2、进度条组件调整
+3、锁屏入口，是否支持动态修改音乐实例数量
+
+通用模板
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+1、"*"表示为必选信息
+2、[A]、[B*] 主要用于状态栏胶囊/气泡的展示，[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立
+3、[D3] 为图片信息，当有 [D3] 信息时，不可显示按钮 [Ex]
+4、背景 [F1] 常态下为高斯模糊，另外可定义背景（支持静态和动态背景图）
+5、按钮 [Ex] 支持文本按钮和图形按钮，开发者只能选用其中一种，图形按钮最多支持显示 2 个
+6、底部标签组合 [G1]：由 [A1*] 、 [C1] 构成，二者必须同时出现，缺少任何 1 个则 [G1] 不出现
+7、进度条组合 [G2]：由 [D4] 、 [D5] 构成，支持设置分段；
+8、标签组合 [G3]：由 [C4] 、 [D2] 构成，可以单独设置背景，不支持单独显示
+9、若有车机的触点，则 [D*] 信息为必选信息。
+10、原G1挪到顶部展示
+
+声明模板
+<card-template entry="notification" category="general">
+使用规范
+信息	描述	level	组件类型	必填	备注	分组
+A*	服务图标	0:A*	<image><lottie><widget>	是	主要用于状态栏胶囊/气泡的展示	
+B*	核心信息	1:B*	<text>	是	主要用于状态栏胶囊/气泡的展示	
+B1*	核心信息	1-1:B1*	<text>	是		
+A1*	服务图标	0-1:A1*	<image>	是	和C1同时存在G1才展示	G1
+C1	服务名称	2-1:C1	<text>	是	和A1同时存在G1才展示	G1
+C2	辅助信息	2-2:C2	<text>	否		
+C3	辅助信息	2-3:C3	<text>	否		
+D	图标/图片/动图/小组件	3:D	<image><lottie><widget>	否	D仅出现在车机，如果服务支持车机入口，则D信息必选	
+D1	图标/图片/动图/小组件	3-1:D1	<image><lottie><widget>	否	D1仅出现在车机，如果服务支持车机入口，则D1信息必选	
+C4	辅助信息	2-4:C4	<text>	否		G3
+D2	图标	3-2:D2	<image>	否		G3
+D3	图标/图片/动图/小组件	3-3:D3	<image><lottie><widget>	否	和E1、E2、E3不能共存	
+D4	进度条	3-4:D4	<progress>	否		G2
+D5	图标/图片/动图	3-5:D5	<image><lottie>	否	有D5信息时D4必须存在，会出现在D4进度条当前进度位置处	G2
+E1	开关/按钮1	4-1:E1	<button>	否	和D3、E3不能同时选择	
+E2	开关/按钮2	4-2:E2	<button>	否	和D3、E3不能同时选择	
+E3	按钮3	4-3:E2	<button>	否	和D3、E1、E2不能同时选择	
+F	整体背景	5:F		是	支持通过bg-image和bg-video设置背景	
+Z	语音播报内容		<voice>	否		
+G3					支持通过bg-color属性设置背景色。	
+信息流转
+模板对接入的信息进行分级编码，信息基于编码可以流转到其他入口，并自动排版；做到一次接入，多端露出，信息在不同的入口露出规则如下:
+
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	A1*+C1+F3+B1*+F1+D1+C2+C3+C4+D2+F2+D3+E1+E2+E3+D4+D5
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	A1*+C1+F3+B1*+F1+D1+C2+C3+C4+D2+F2+D3+E1+E2+E3+D4+D5
+入口5 - 直板/大折/平板 AOD	A1*+B1*+C2
+入口6 - 外屏底部胶囊	A1*+B1*+C2
+入口7 - 外屏通知中心	A1*+B1*+C2
+入口12 - 车机卡片	A1*+B1*+C1+C2+D*
+入口11 - 耳机播报	Z
+示例
+不带进度条
+
+<template>
+  <card-template category="general" entry="notification">
+   <image level="0:A*" src="{{ $r('images.logo') }}"></image>
+   <text level="1:B*">{{ status }}</text>image>
+   <div level="5:F" bg-video="./assets/video/bg.mp4">
+     <div level="6-1:G1">
+       <image level="0-1:A1*" src="{{ $r('images.logo') }}"></image>
+       <text level="2-1:C1">{{ name }}</text>
+     </div>
+     <text level="1-1:B1">{{ status }}</text>
+     <text level="2-2:C2">{{ info }}</text>
+     <image level="3-1:D1" src="{{ $r('images.bigLogo')}}"></image>
+     <button level="4-3:E3" type="capsule" value="{{ $t('message.button3') }}"></button>
+   </div>
+   <voice>{{ voiceLabel }}</voice>
+  </card-template>
+</template>
+<data>
+{
+    "uiData": {
+        "name ": "XX外卖",
+        "status": "商品已送达",
+        "info": "柜门号129",
+        "voiceLabel": ""
+    },
+    "uiEvent": {
+    }
+}
+</data>
+带进度条
+
+<template>
+  <card-template category="general" entry="notification">
+   <image level="0:A*" src="{{ $r('images.logo') }}"></image>
+   <text level="1:B*">{{ status }}</text>
+   <div level="5:F" bg-image="{{ $r('images.background') }}">
+     <div level="6-1:G1">
+       <image level="0-1:A1*" src="{{ $r('images.logo') }}"></image>
+       <text level="2-1:C1">{{ name }}</text>
+     </div>
+     <div level="6-2:G2">
+       <image level="3-5:D5" src="{{ $r('images.logo') }}"></image>
+       <progress level="3-4:D4" step="2" color="#FFCC24" bg-color="rgba(255,255,255,0.2)" percent="{{ percent }}"></progress>
+     </div>
+     <div level="6-3:G3">
+       <text level="2-4:C4">{{ weather }}</text>
+       <image level="3-2:D2" src="{{ $r('images.progress') }}"></image>
+     </div>
+     <text level="1-1:B1">{{ status }}</text>
+     <text level="2-2:C2">{{ info }}</text>
+     <button level="4-3:E3" type="capsule" value="{{ $t('message.button3') }}"></button>
+   </div>
+   <voice>{{ voiceLabel }}</voice>
+  </card-template>
+</template>
+<data>
+{
+    "uiData": {
+        "name ": "XX外卖",
+        "status": "骑手正在送货",
+        "info": "预计12分钟后送达",
+        "weather": "高温",
+        "percent": "0",
+        "voiceLabel": ""
+    },
+    "uiEvent": {
+    }
+}
+</data>
+对称模板
+OS14.0 暂不支持车机上展示！
+
+
+1、 ""表示为必选信息；
+2、 [A]、[B*] 主要用于状态栏胶囊/气泡的展示，[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立；
+3、底部标签组合 [G1]：由 [A*] 、 [C1] 构成，二者必须同时出现，缺少任何 1 个则 [G1] 不出现；
+4、 背景 [F1] 常态下为高斯模糊，另外可定义背景（支持静态和动态背景图，需要审核）。
+
+声明模板
+<card-template entry="notification" category="symmetry">
+使用规范
+信息	描述	level	组件类型	必填	备注	分组
+A*	服务图标/场景图标	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示	
+B*	附件信息	1:B*	<image>``<text>	是	主要用于状态栏胶囊/气泡的展示
+支持通过if else切换不同组件，仅支持二选一	
+B1*	核心信息1	1-1:B1*	<text>	是		
+A1*	服务图标	0-1：A1*	<image>			G1
+C1	服务名称	2-1:C1	<text>	否	当C1不存在时，展开面板状态下A*也不展示	G1
+C2*	辅助信息2*	2-2:C2*	<text>	是		
+C3	辅助信息3	2-3:C3	<text>	否		
+C4	辅助信息4	2-4:C4	<text>	否		G
+C5	辅助信息5	2-5:C5	<text>	否		G
+D1	出发/起飞时间	3-1:D1	<text>	否		G
+D2	抵达/到达时间	3-2:D2	<text>	否		G
+D3	图标3	3-3:D3	<image>	否		G
+D4	事件辅助信息4	3-4:D4	<text>	否		G
+E	按钮	4:E	<button>	否		
+F	卡片背景	5:F	<div>	是	支持通过bg-image和bg-video设置背景	
+Z	语音播报内容		<voice>	否		
+G支持通过绑定if 控制展示或者隐藏。
+
+信息流转
+模板对接入的信息进行分级编码，信息基于编码可以流转到其他入口，并自动排版；做到一次接入，多端露出，信息在不同的入口露出规则如下:
+支持的设备和入口
+对应config.json内的device字段
+
+设备(type)	入口(entry)
+phone	“aod”, “statusbar”, “notification”, “lockscreen”, “headset”,""
+入口2 - 直板/大折/平板状态栏卡片	B1*+C1+C2*+C3+C4+C5+D1+D2+D3+D4+E
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	B1*+C1+C2*+C3+C4+C5+D1+D2+D3+D4+E
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	B1*+C1+C2*+C3+C4+C5+D1+D2+D3+D4+E
+入口5 - 直板/大折/平板 AOD	A1*+B1*+C2*
+入口6 - 外屏底部胶囊	A1*+B1*+C2*
+入口7 - 外屏通知中心	A1*+B1*+C2*
+入口11-耳机播报	Z
+示例
+<card-template entry="notification" category="symmetry">
+     <image level="0:A*" src="{{ $r('images.icon') }}"></image>
+     <text level="1:B*">{{ additional }}</text>
+
+   <div level="5:F" bg-image="{{ $r('images.background') }}">
+     <text level="1-1:B1">{{ content }}</text>
+     <div level="6-1:G1">
+       <image level="0-1:A1*" src="{{ $r('images.icon') }}"></image>
+       <text level="2-1:C1">{{ name }}</text>
+     </div>
+     <text level="2-2:C2*">{{ number }}</text>
+     <text level="2-3:C3">{{ checkIn }}</text>
+
+     <div level="6:G" if="showG">
+          <text level="2-4:C4">{{ departureLocation }}</text>
+          <text level="2-5:C5">{{ destLocation }}</text>
+
+          <text level="3-1:D1">{{ departureTime }}</text>
+          <text level="3-2:D2">{{ destTime }}</text>
+          <image level="3-3:D3" src="{{$r('images.airplane') }}"></image>
+          <text level="3-4:D4">{{ extraDays }}</text>
+     </div>
+
+     <button level="4:E" type="capsule" value="{{ $t('message.button') }}"></button>
+   </div>
+   <voice>{{ voiceLabel }}</voice>
+</card-template>
+
+流体云模板1.0
+概述
+从API2.0 (ColorOS14.0)开始，泛在服务框架支持流体云开发，流体云作为泛在服务的一种的展现形式。
+OPPO 提供多种卡片模板，开发者通过填充数据接入后，便可让服务在流体云的多入口展现。
+
+流体云的工程结构和普通卡片结构一致，需要在oml文件内声明流体云模板，如下：
+
+<!-- xxx.oml -->
+<template>
+  <card-template entry="notification" category="模板分类">
+       <!-- 模板内容 -->
+  </card-template>
+</template>
+模板分类
+流体云模板支持绑定变量和点击事件，但是不允许开发者修改样式，不支持使用CSS修改布局和样式。
+目前流体云的模板清单如下：
+
+category	描述
+general	通用模板
+capsule	胶囊模板
+graphic	图文模板
+text	文本模板
+symmetry	对称模板
+media	音乐模板
+通用模板
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+1、"*"表示为必选信息
+2、[A]、[B*] 主要用于状态栏胶囊/气泡的展示，[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立
+3、[D3] 为图片信息，当有 [D3] 信息时，不可显示按钮 [Ex]
+4、背景 [F1] 常态下为高斯模糊，另外可定义背景（支持静态和动态背景图）
+5、按钮 [Ex] 支持文本按钮和图形按钮，开发者只能选用其中一种，图形按钮最多支持显示 2 个
+6、底部标签组合 [G1]：由 [A1*] 、 [C1] 构成，二者必须同时出现，缺少任何 1 个则 [G1] 不出现
+7、进度条组合 [G2]：由 [D4] 、 [D5] 构成，支持设置分段；
+8、标签组合 [G3]：由 [C4] 、 [D2] 构成，可以单独设置背景，不支持单独显示
+9、若有车机的触点，则 [D*] 信息为必选信息。
+
+声明模板
+<card-template entry="notification" category="general">
+使用规范
+信息	描述	level	组件类型	必填	备注	分组
+A*	服务图标	0:A*	<image><lottie><widget>	是	主要用于状态栏胶囊/气泡的展示	
+B*	核心信息	1:B*	<text>	是	主要用于状态栏胶囊/气泡的展示	
+B1*	核心信息	1-1:B1*	<text>	是		
+A1*	服务图标	0-1:A1*	<image>	是	和C1同时存在G1才展示	G1
+C1	服务名称	2-1:C1	<text>	是	和A1同时存在G1才展示	G1
+C2	辅助信息	2-2:C2	<text>	否		
+C3	辅助信息	2-3:C3	<text>	否		
+D	图标/图片/动图/小组件	3:D	<image><lottie><widget>	否	D仅出现在车机，如果服务支持车机入口，则D信息必选	
+D1	图标/图片/动图/小组件	3-1:D1	<image><lottie><widget>	否	D1仅出现在车机，如果服务支持车机入口，则D1信息必选	
+C4	辅助信息	2-4:C4	<text>	否		G3
+D2	图标	3-2:D2	<image>	否		G3
+D3	图标/图片/动图/小组件	3-3:D3	<image><lottie><widget>	否	和E1、E2、E3不能共存	
+D4	进度条	3-4:D4	<progress>	否		G2
+D5	图标/图片/动图	3-5:D5	<image><lottie>	否	有D5信息时D4必须存在，会出现在D4进度条当前进度位置处	G2
+E1	开关/按钮1	4-1:E1	<button>	否	和D3、E3不能同时选择	
+E2	开关/按钮2	4-2:E2	<button>	否	和D3、E3不能同时选择	
+E3	按钮3	4-3:E2	<button>	否	和D3、E1、E2不能同时选择	
+F	整体背景	5:F		是	支持通过bg-image和bg-video设置背景	
+Z	语音播报内容		<voice>	否		
+G3					支持通过bg-color属性设置背景色。	
+信息流转
+模板对接入的信息进行分级编码，信息基于编码可以流转到其他入口，并自动排版；做到一次接入，多端露出，信息在不同的入口露出规则如下:
+
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	A1*+C1+F3+B1*+F1+D1+C2+C3+C4+D2+F2+D3+E1+E2+E3+D4+D5
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	A1*+C1+F3+B1*+F1+D1+C2+C3+C4+D2+F2+D3+E1+E2+E3+D4+D5
+入口5 - 直板/大折/平板 AOD	A1*+B1*+C2
+入口6 - 外屏底部胶囊	A1*+B1*+C2
+入口7 - 外屏通知中心	A1*+B1*+C2
+入口12 - 车机卡片	A1*+B1*+C1+C2+D*
+入口11 - 耳机播报	Z
+示例
+不带进度条
+
+<template>
+  <card-template category="general" entry="notification">
+   <image level="0:A*" src="{{ $r('images.logo') }}"></image>
+   <text level="1:B*">{{ status }}</text>image>
+   <div level="5:F" bg-video="./assets/video/bg.mp4">
+     <div level="6-1:G1">
+       <image level="0-1:A1*" src="{{ $r('images.logo') }}"></image>
+       <text level="2-1:C1">{{ name }}</text>
+     </div>
+     <text level="1-1:B1">{{ status }}</text>
+     <text level="2-2:C2">{{ info }}</text>
+     <image level="3-1:D1" src="{{ $r('images.bigLogo')}}"></image>
+     <button level="4-3:E3" type="capsule" value="{{ $t('message.button3') }}"></button>
+   </div>
+   <voice>{{ voiceLabel }}</voice>
+  </card-template>
+</template>
+<data>
+{
+    "uiData": {
+        "name ": "XX外卖",
+        "status": "商品已送达",
+        "info": "柜门号129",
+        "voiceLabel": ""
+    },
+    "uiEvent": {
+    }
+}
+</data>
+
+带进度条
+
+<template>
+  <card-template category="general" entry="notification">
+   <image level="0:A*" src="{{ $r('images.logo') }}"></image>
+   <text level="1:B*">{{ status }}</text>
+   <div level="5:F" bg-image="{{ $r('images.background') }}">
+     <div level="6-1:G1">
+       <image level="0-1:A1*" src="{{ $r('images.logo') }}"></image>
+       <text level="2-1:C1">{{ name }}</text>
+     </div>
+     <div level="6-2:G2">
+       <image level="3-5:D5" src="{{ $r('images.logo') }}"></image>
+       <progress level="3-4:D4" step="2" color="#FFCC24" bg-color="rgba(255,255,255,0.2)" percent="{{ percent }}"></progress>
+     </div>
+     <div level="6-3:G3">
+       <text level="2-4:C4">{{ weather }}</text>
+       <image level="3-2:D2" src="{{ $r('images.progress') }}"></image>
+     </div>
+     <text level="1-1:B1">{{ status }}</text>
+     <text level="2-2:C2">{{ info }}</text>
+     <button level="4-3:E3" type="capsule" value="{{ $t('message.button3') }}"></button>
+   </div>
+   <voice>{{ voiceLabel }}</voice>
+  </card-template>
+</template>
+<data>
+{
+    "uiData": {
+        "name ": "XX外卖",
+        "status": "骑手正在送货",
+        "info": "预计12分钟后送达",
+        "weather": "高温",
+        "percent": "0",
+        "voiceLabel": ""
+    },
+    "uiEvent": {
+    }
+}
+</data>
+
+胶囊模板
+说明：
+从API 2.0开始支持。
+只有A* & B*信息，仅支持状态栏胶囊形态(包含气泡)。
+
+
+声明模板
+<card-template entry="notification" category="capsule">
+使用规范
+信息	描述	level	组件类型	必填	备注
+A*	服务图标	0:A*	image、lottie、widget	是	支持通过if else切换不同组件，仅支持二选一
+B*	附加信息	1:B*	image、text	是	支持通过if else切换不同组件，仅支持二选一
+示例
+<template>
+  <card-template entry="notification" category="capsule">
+     <widget level="0:A*" min="0" max="100" value="{{ value }}" if="{{ showWidget}}">
+        <lottie src="./assets/images/lottie.json"></lottie>
+     </widget>
+     <image level="0:A*" src="{{ $r('images.icon') }}" else ></image>
+     <text level="1:B*" if="{{ showText }}">{{ description }}</text>
+     <image level="1:B*" src="{{ logo }}" else></image>
+  </card-template>
+</template>
+<data>
+{
+    "uiData": {
+        "showWidget": true,
+        "value": 50,
+        "capsule_logo”: 'assets/images/capsule_logo.png',
+        "showText": true,
+        "description": '已连接',
+        "logo": 'assets/images/capsule_icon.png'
+    },
+    "uiEvent": {
+    }
+}
+</data>
+图文模板
+v2.0.0
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+图文模板升级后.png
+1、“*”表示为必选信息；
+
+2、[G1] 绿色区域与 [G2] 蓝色区域两者二选一，且不可并存，红色按钮与白色按钮同理；
+
+3、[A*]、[B*] 主要用于状态栏胶囊/气泡的展示，`[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立；
+
+4、按钮 [E] 可为图形按钮，也可为纯文本按钮，当按钮为纯文本按钮时，按钮只能有一个，如上图所示；
+
+5、图形按钮 [E] 尽量用易懂的图形开关，避免多语言问题，同时注意避免使用表意模糊的图形按钮;
+
+6、图形按钮 [E] 超过两个时候，换行显示；
+
+7、核心信息 [B1*] 以阿拉伯数字为主；
+
+8、[C1] 信息消失，[B1*] 显示长度自适应变长；
+
+9、背景 为高斯模糊，不允许开发者自定义。
+
+声明模板
+<card-template entry="notification" category="graphic">
+使用规范
+信息	描述	level	组件类型	必填	备注
+A*	服务图标/场景图标	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示
+A1*	服务图标*	0-1:A1*	<image>	是	
+B*	附加信息	1:B*	<image>
+<text>	是	主要用于状态栏胶囊/气泡的展示
+支持通过if else切换不同组件，仅支持二选一
+B1*	核心信息	1-1:B1*	<text>	是	
+C1	辅助信息1	2-1:C1	<text>	否	在AOD、外屏底部胶囊、外屏通知中心的入口不做辅助信息C1限制默认取辅助信息C1的数据
+C2	辅助信息2	2-2:C2	<text>	否	
+E1*	开关/圆形按钮	4-1:E1*	<button>	否	和E3可以共存，需要通过if else控制显示的组件，选择E2时，E1必选
+E2	开关/圆形按钮	4-2:E2	<button>	否	和E3可以共存，需要通过if else控制显示的组件
+E3	胶囊形按钮3	4-3:E3	<button>	否	和E1*、E2可以共存，需要通过if else控制显示的组件
+B2*	核心信息2*	1-2:B2*	<text>	是	
+C3	辅助信息3	2-3:C3	<text>	否	
+D	图片/图标/动画/小组件/视频	3:D	<image>
+<lottie>
+<widget>
+<video>	是	支持通过if else切换不同组件
+E4*	开关/圆形按钮4*	4-4:E4*	<button>	否	和E6可以共存，需要通过if else控制显示的组件，选择E5时，E4必选
+E5	开关/圆形按钮5	4-5:E5	<button>	否	和E6可以共存，需要通过if else控制显示的组件
+E6	胶囊形按钮6	4-6:E6	<button>	否	和E4*、E5可以共存，需要通过if else控制显示的组件
+E7*	按钮7	4-7:E7	<button>	否	与E8、E9、E10为一组、和E11、E12可以共存，需要通过if else控制显示的组件
+E8	开关/圆形按钮8	4-8:E8	<button>	否	和E11、E12可以共存，需要通过if else控制显示的组件
+E9	开关/圆形按钮9	4-9:E9	<button>	否	和E11、E12可以共存，需要通过`if else控制显示的组件
+E10	开关/圆形按钮10	4-10:E10	<button>	否	和E11、E12可以共存，需要通过if else`控制显示的组件
+E11	胶囊形按钮11	4-11:E11	<button>	否	与E12为一组、和E7、E8、E9、E10可以共存，需要通过if else控制显示的组件
+E12	胶囊形按钮12	4-12:E12	<button>	否	与E11为一组，和E8、E9、E10可以共存，需要通过if else控制显示的组件
+Z	语音播报内容		<voice>	否	
+注：G1和G2支持通过绑定if else来动态切换展示内容，在代码里至少存在一个元素，运行时同时最多能展示一个。
+
+信息流转
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	B1*+C1+C2+E1*+E2+E3+E7+E8+E9+E10+E11+E12 & B2*+C3+D+E4*+E5+E6+E7+E8+E9+E10+E11+E12
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	B1*+C1+C2+E1*+E2+E3+E7+E8+E9+E10+E11+E12 & B2*+C3+D+E4*+E5+E6+E7+E8+E9+E10+E11+E12
+入口5 - 直板/大折/平板 AOD	A1*+B1*+C1/C2 & D*+B2*+C3
+入口6 - 外屏底部胶囊	A1*+B1*+C1/C2 & D*+B2*+C3
+入口7 - 外屏通知中心	A1*+B1*+C1/C2 & D*+B2*+C3
+入口8 - 手表息屏	A1*
+入口9 - 手表亮屏	A1*
+入口10 - 手表抬手亮屏	A1*+B1*
+入口8 - 耳机播报	Z
+v2.1.0
+说明：
+从API 2.1开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+图文模板升级后.png
+1、“*”表示为必选信息；
+2、[G1] 绿色区域与 [G2] 蓝色区域两者二选一，且不可并存，红色按钮与白色按钮同理；
+3、右侧按钮 [E] 可为图形按钮，也可为纯文本按钮，当按钮为纯文本按钮时，按钮只能有一个，如上图所示
+4、图形按钮 [E] 尽量用易懂的图形开关，避免多语言问题，同时注意避免使用表意模糊的图形按钮;
+5、若要显示E13按钮时，C1辅助文本不可显示，反之同理；
+6、若要显示E14按钮时，不显示 [D] 信息，[D] 信息被 [E14] 顶掉；
+7、当需要使用圆形+胶囊型组合的底部按钮时，[E7*]、[E9*] 、[E10*]为必选信息，当不需要底部按钮时，底部按钮为可选项。
+8、当底部按钮要使用5个图形按钮时，5个按钮均为必选信息，按钮之间的间距为自适应；
+9、当[E12]或[E11]只展示一个时，单个按钮为自适应宽度（卡片宽度 — 左右边距）；
+10、底部按钮一次只能配置一组
+
+声明模板
+<card-template entry="notification" category="graphic">
+使用规范
+信息	描述	level	组件类型	必填	备注
+A*	服务图标/场景图标	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示
+A1*	服务图标*	0-1:A1*	<image>	是	
+B*	附加信息	1:B*	<image>
+<text>	是	主要用于状态栏胶囊/气泡的展示
+支持通过if else切换不同组件，仅支持二选一
+B1*	核心信息	1-1:B1*	<text>	是	
+C1	辅助信息1	2-1:C1	<text>	否	和E13不可同时选择
+C2	辅助信息2	2-2:C2	<text>	否	
+E1*	开关/圆形按钮	4-1:E1*	<button>	否	和E3不可同时选择，选择E2时，E1必选
+E2	开关/圆形按钮	4-2:E2	<button>	否	和E3不可同时选择
+E3	胶囊形按钮3	4-3:E3	<button>	否	和E1*、E2不可同时出现
+B2*	核心信息2*	1-2:B2*	<text>	是	
+C3	辅助信息3	2-3:C3	<text>	否	
+D	图片/图标/动画/小组件/视频	3:D	<image>
+<lottie>
+<widget>
+<video>	是	和E14不可同时选择
+E4*	开关/圆形按钮4*	4-4:E4*	<button>	否	和E6不可同时出现, ，选择E5时，E4必选
+E5	开关/圆形按钮5	4-5:E5	<button>	否	和E6不可同时出现
+E6	胶囊形按钮6	4-6:E6	<button>	否	和E4*、E5不可同时出现
+E7*	按钮7	4-7:E7	<button>	否	与E8、E9、E10为一组、和E11、E12、E15、E16不可同时出现
+E8	开关/圆形按钮8	4-8:E8	<button>	否	和E11、E12不可同时出现
+E9	开关/圆形按钮9	4-9:E9	<button>	否	和E11、E12不可同时出现
+E10	开关/圆形按钮10	4-10:E10	<button>	否	和E11、E12不可同时出现
+E11	胶囊形按钮11	4-11:E11	<button>	否	与E12为一组、和E7、E8、E9、E10、E15、E16不可同时出现
+E12	胶囊形按钮12	4-12:E12	<button>	否	与E11为一组，和E7、E8、E9、E10、E15、E16不可同时出现
+E13	开关/圆形按钮13	4-13:E13	<button>	否	和C1不可同时出现
+E14	胶囊形按钮14	4-14:E14	<button>	否	和D不可同时出现
+E15	胶囊形按钮15	4-15:E15	<button>	否	和E8、E9、E10、E16为一组，和`E7、E11、E12不可同时出现
+E16	胶囊形按钮16	4-16:E16	<button>	否	和E8、E9、E10、E16为一组，和E7、E11、E12`不可同时出现
+Z	语音播报内容		<voice>	否	
+注：G1和G2支持通过绑定if else来动态切换展示内容，在代码里至少存在一个元素，运行时同时最多能展示一个。
+
+信息流转
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	B1*+C1+C2+E1*+E2+E3+E13+E7*+E8+E9*+E10*+E15+E16+E11+E12 & B2*+C3+D+E4*+E5+E14+E6+E7*+E8+E9*+E10*+E15+E16+E11+E12
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	B1*+C1+C2+E1*+E2+E3+E13+E7*+E8+E9*+E10*+E15+E16+E11+E12 & B2*+C3+D+E4*+E5+E14+E6+E7*+E8+E9*+E10*+E15+E16+E11+E12
+入口5 - 直板/大折/平板 AOD	A1*+B1*+C1/C2 & D*+B2*+C3
+入口6 - 外屏底部胶囊	A1*+B1*+C1/C2 & D*+B2*+C3
+入口7 - 外屏通知中心	A1*+B1*+C1/C2 & D*+B2*+C3
+入口8 - 耳机播报	Z
+示例
+<template>
+  <card-template category="graphic" entry="notification">
+     <image level="0:A*" src="{{ $r('images.logo') }}"></image>
+     <image level="0-1:A1*" src="{{ $r('images.logo') }}"></image>
+     <text level="1:B*">{{ title }}</text>
+     <div level="6-1:G1" if="{{showG1}}">
+        <text level="1-1:B1*">{{ time }}</text>
+        <text level="2-1:C1">{{ title1 }}</text>
+        <text level="2-2:C2">{{ subtitle }}</text>
+        <button level="4-1:E1*" type="circle" icon="{{ $r('images.button1') }}"></button>
+        <button level="4-2:E2" type="circle" icon="{{ $r('images.button2') }}"></button>
+     </div>
+     <div level="6-2:G2" else>
+        <text level="1-2:B2*">{{ title }}</text>
+        <text level="2-3:C3">{{ subtitle }}</text>
+        <video level="3:D" src="./assets/videos/xxx.mp4"></video>
+        <button level="4-4:E4*" type="circle" icon="{{ $r('images.button4') }}"></button>
+        <button level="4-5:E5" type="circle" icon="{{ $r('images.button5') }}"></button>
+     </div>
+     <button level="4-11:E11" type="capsule" value="{{ $t('message.button11') }}"></button>
+     <button level="4-12:E12" type="capsule" value="{{ $t('message.button12') }}"></button>
+     <voice>{{ voiceLabel }}</voice>
+  </card-template>
+</template>
+<data>
+{
+    "uiData": {
+        "showG1": true,
+        "title": "核心信息B2*",
+        "title1": "",
+        "time": "核心信息 B1*",
+        "subtitle": "三方应用名称",
+        "subtitle ": true
+    },
+    "uiEvent": {
+    }
+}
+</data>
+
+文本模板
+v2.0.0
+说明：
+从API 2.0开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+1、“*”表示为必选信息；
+2、[G1] 绿色区域与 [G2] 蓝色区域两者二选一，且不可并存，红色按钮与白色按钮同理；
+3、[A*]、[B*] 主要用于状态栏胶囊/气泡的展示，[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立；
+4、按钮 [E] 可为图形按钮，也可为纯文本按钮，当按钮为纯文本按钮时，按钮只能有一个，如上图所示蓝色区域；
+5、图形按钮 [E] 尽量用易懂的图形开关，避免多语言问题，同时注意避免使用表意模糊的图形按钮;
+6、图形按钮 [E] 超过两个时候，换行显示；
+7、当有 [E3] 按钮时，不显示 [D3*] 信息，[D3*] 信息被 [E3] 顶掉；
+8、背景为高斯模糊，不允许开发者自定义。
+
+声明模板
+<card-template entry="notification" category="text">
+使用规范
+信息	描述	level	组件类型	必填	备注
+A*	服务图标/场景图标	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示
+A1*	服务图标*	0-1:A1*	<image>	是	
+B*	附加信息	1:B*	<image>
+<text>	是	主要用于状态栏胶囊/气泡的展示
+支持通过if else切换不同组件，仅支持二选一
+B1*	核心信息	1-1:B1*	<text>	是	
+D1	图片/图标/动图	3-1:D1	<image>
+<lottie>	否	支持通过if else切换不同组件
+D2	图标	3-2:D2	<image>	否	
+B2*	核心信息2	1-2:B2*	<text>	是	
+C1	服务名称1	2-1:C1	<text>	是	在AOD、外屏底部胶囊、外屏通知中心的入口不做辅助信息C1限制默认取辅助信息C1的数据
+C2	辅助信息2	2-2:C2	<text>	否	若辅助信息C1无数据时，可取辅助信息C2数据。
+C3	辅助信息3	2-3:C3	<image>	否	
+D3	图片/动画/小组件	3-3:D3	<image>
+<lottie>
+<widget>	是	支持通过if else切换不同组件
+E1*	开关/圆形按钮1*	4-1:E1*	<button>	是	和E4可以共存，需要通过if else控制显示的组件
+E2	开关/圆形按钮2	4-2:E2	<button>	否	和E4可以共存，需要通过if else控制显示的组件
+E3	开关/圆形按钮3	4-3:E3	<button>	否	当有 [ E3 ] 按钮时，不显示 [ D3* ] 信息，[ D3*] 信息被 [ E3 ] 顶掉；
+E4	胶囊按钮4	4-4:E4	<button>	否	和E1* & E2可以共存，需要通过if else控制显示的组件
+E5*	胶囊按钮5	4-5:E5*	<button>	是	和E9、E10可以共存，需要通过if else控制显示的组件
+E6*	开关/圆形按钮6	4-6:E6*	<button>	是	和E9、E10可以共存，需要通过if else控制显示的组件
+E7*	开关/圆形按钮7	4-7:E7*	<button>	是	和E9、E10可以共存，需要通过if else控制显示的组件
+E8	开关/圆形按钮8	4-8:E8	<button>	否	存在时，E5*、E6*、E7*必须存在
+E9	胶囊按钮9	4-9:E9	<button>	否	和E5*、E6*、E7*可以共存，需要通过if else控制显示的组件
+E10	胶囊按钮10	4-10:E10	<button>	否	和E5*、E6*、E7*可以共存，需要通过if else控制显示的组件
+Z	语音播报内容		<voice>	否	
+注：G1和G2支持通过绑定if else来动态切换展示内容，在代码里至少存在一个元素，运行时同时最多能展示一个。
+
+信息流转
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	B1*+D1+D2+E5*+E6*+E7*+E8+E9+E10 & B2*+C1+C2+C3+D3+E1*+E2+E3+E4+E5*+E6*+E7*+E8+E9+E10
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	B1*+D1+D2+E5*+E6*+E7*+E8+E9+E10 & B2*+C1+C2+C3+D3+E1*+E2+E3+E4+E5*+E6*+E7*+E8+E9+E10
+入口5 - 直板/大折/平板 AOD	A1*+B1* & B2*+C1/C2+D3
+入口6 - 外屏底部胶囊	A1*+B1* & B2*+C1/C2+D3
+入口7 - 外屏通知中心	A1*+B1* & B2*+C1/C2+D3
+入口8 - 耳机播报	Z
+
+v2.1.0
+说明：
+从API 2.1开始支持。如后续版本有新增内容，则单独标记该内容的初始支持版本。
+
+
+1、“*”表示为必选信息；
+2、[G1] 绿色区域与 [G2] 蓝色区域两者二选一，且不可并存，红色按钮与白色按钮同理；
+3、[G1] 绿色区域的 B1*信息支持文本自动换行，最多显示2行；如果2行文本显示不全时，一行跑马灯显示
+4、若要显示 E3 按钮时，不显示 [D3] 信息，[D3] 信息被 [E3] 顶掉；
+5、当需要使用圆形+胶囊型组合的底部按钮时，E6*,E7*,E5*为必选信息；当不需要底部按钮时，底部按钮则为可选项。
+6、当底部按钮要使用5个图形按钮时，5个按钮均为必选信息，按钮之间的间距为自适应；
+7、当[E10]或[E9]只展示一个时，单个按钮为自适应宽度（卡片宽度 — 左右边距）；
+8、底部按钮一次只能配置一组
+
+声明模板
+<card-template entry="notification" category="text">
+使用规范
+信息	描述	level	组件类型	必填	备注
+A*	服务图标/场景图标	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示
+A1*	服务图标*	0-1:A1*	<image>	是	
+B*	附加信息	1:B*	<image>
+<text>	是	主要用于状态栏胶囊/气泡的展示
+支持通过if else切换不同组件，仅支持二选一
+B1*	核心信息	1-1:B1*	<text>	是	
+D1	图片/图标/动图	3-1:D1	<image>
+<lottie>	否	支持通过if else切换不同组件
+D2	图标	3-2:D2	<image>	否	
+B2*	核心信息2	1-2:B2*	<text>	是	
+C1	服务名称1	2-1:C1	<text>	是	在AOD、外屏底部胶囊、外屏通知中心的入口不做辅助信息C1限制默认取辅助信息C1的数据
+C2	辅助信息2	2-2:C2	<text>	否	若辅助信息C1无数据时，可取辅助信息C2数据。
+C3	辅助信息3	2-3:C3	<image>	否	
+D3	图片/动画/小组件	3-3:D3	<image>
+<lottie>
+<widget>	是	支持通过if else切换不同组件
+E1*	开关/圆形按钮1*	4-1:E1*	<button>	是	和E4可以共存，需要通过if else控制显示的组件
+E2	开关/圆形按钮2	4-2:E2	<button>	否	和E4可以共存，需要通过if else控制显示的组件
+E3	开关/圆形按钮3	4-3:E3	<button>	否	当有 [ E3 ] 按钮时，不显示 [ D3* ] 信息，[ D3*] 信息被 [ E3 ] 顶掉；
+E4	胶囊按钮4	4-4:E4	<button>	否	和E1* & E2可以共存，需要通过if else控制显示的组件
+E5*	胶囊按钮5	4-5:E5*	<button>	是	和E6、E7、E8为一组，和E9、E10、E11、E12不能同时存在
+E6*	开关/圆形按钮6	4-6:E6*	<button>	是	和E9、E10不能同时存在
+E7*	开关/圆形按钮7	4-7:E7*	<button>	是	和E9、E10不能同时存在
+E8	开关/圆形按钮8	4-8:E8	<button>	否	和E9、E10不能同时存在
+E9	胶囊按钮9	4-9:E9	<button>	否	和E10为一组，和E5*、E6*、E7*、E8、E11、E12不能同时存在
+E10	胶囊按钮10	4-10:E10	<button>	否	和E9为一组，和E5*、E6*、E7*、E8、E11、E12不能同时存在
+E11*	开关/圆形按钮11*	4-11:E11*	<button>	否	和E6、E7、E8、E12为一组，和E5、E9、E10不可同时出现
+E12*	开关/圆形按钮12*	4-12:E12*	<button>	否	和E6、E7、E8、E11为一组，和E5、E9、E10不可同时出现
+Z	语音播报内容		<voice>	否	
+注：G1和G2支持通过绑定if else来动态切换展示内容，在代码里至少存在一个元素，运行时同时最多能展示一个。
+
+信息流转
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	B1*+D1+D2+E5*+E6*+E7*+E8+E9+E10+E11+E12 & B2*+C1+C2+C3+D3+E1*+E2+E3+E4+E5*+E6*+E7*+E8+E11+E12+E9+E10
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	B1*+D1+D2+E5*+E6*+E7*+E8+E9+E10+E11+E12 & B2*+C1+C2+C3+D3+E1*+E2+E3+E4+E5*+E6*+E7*+E8+E11+E12+E9+E10
+入口5 - 直板/大折/平板 AOD	A1*+B1* & D3+B2*+C1/C2
+入口6 - 外屏底部胶囊	A1*+B1* & B2*+C1/C2+D3
+入口7 - 外屏通知中心	A1*+B1* & B2*+C1/C2+D3
+入口8 - 耳机播报	Z
+示例
+<card-template entry="notification" category="text">
+     <image level="0:A*" src="{{ $r('images.icon') }}"></image>
+     <text level="1:B*">{{ additional }}</text>
+     <image level="0-1:A1*" src="{{ $r('images.icon') }}"></image>
+     <div level="6-1:G1" if="{{ show }}">
+        <text level="1-1:B1*">{{ content }}</text>
+        <lottie level="3-1:D1" src="./assets/lottie/lottie.json"></lottie>
+        <image level="3-2:D2" src="{{ $r('images.d2') }}"></image>
+     </div>
+
+     <div level="6-2:G2" else>
+        <text level="1-2:B2*">{{ content }}</text>
+        <text level="2-1:C1">{{ title1 }}</text>
+        <text level="2-2:C2">{{ title2 }}</text>
+        <image level="2-3:C3" src="{{ smImg }}"></image>
+        <image level="3-3:D3" src="{{ $r('images.d3') }}"></image>
+        <button level="4-1:E1*" type="circle" icon="{{ $r('images.button1') }}"></button>
+        <button level="4-2:E2" type="circle" icon="{{ $r('images.button2') }}"></button>
+     </div>
+     
+     <button level="4-5:E5*" type="capsule" value="{{ $t('message.button5') }}"></button>
+     <button level="4-6:E6*" type="circle" icon="{{ $r('images.button6') }}"></button>
+     <button level="4-7:E7*" type="circle" icon="{{ $r('images.button7') }}"></button>
+     <button level="4-8:E8" type="circle" icon="{{ $r('images.button8') }}"></button>
+     <voice>{{ voiceLabel }}</voice>
+</card-template>
+
+对称模板
+OS14.0 暂不支持车机上展示！
+
+
+1、 ""表示为必选信息；
+2、 [A]、[B*] 主要用于状态栏胶囊/气泡的展示，[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立；
+3、底部标签组合 [G1]：由 [A*] 、 [C1] 构成，二者必须同时出现，缺少任何 1 个则 [G1] 不出现；
+4、 背景 [F1] 常态下为高斯模糊，另外可定义背景（支持静态和动态背景图，需要审核）。
+
+声明模板
+<card-template entry="notification" category="symmetry">
+使用规范
+信息	描述	level	组件类型	必填	备注	分组
+A*	服务图标/场景图标	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示	
+B*	附件信息	1:B*	<image>``<text>	是	主要用于状态栏胶囊/气泡的展示
+支持通过if else切换不同组件，仅支持二选一	
+B1*	核心信息1	1-1:B1*	<text>	是		
+A1*	服务图标	0-1：A1*	<image>			G1
+C1	服务名称	2-1:C1	<text>	否	当C1不存在时，展开面板状态下A*也不展示	G1
+C2*	辅助信息2*	2-2:C2*	<text>	是		
+C3	辅助信息3	2-3:C3	<text>	否		
+C4	辅助信息4	2-4:C4	<text>	否		G
+C5	辅助信息5	2-5:C5	<text>	否		G
+D1	出发/起飞时间	3-1:D1	<text>	否		G
+D2	抵达/到达时间	3-2:D2	<text>	否		G
+D3	图标3	3-3:D3	<image>	否		G
+D4	事件辅助信息4	3-4:D4	<text>	否		G
+E	按钮	4:E	<button>	否		
+F	卡片背景	5:F	<div>	是	支持通过bg-image和bg-video设置背景	
+Z	语音播报内容		<voice>	否		
+G支持通过绑定if 控制展示或者隐藏。
+
+信息流转
+模板对接入的信息进行分级编码，信息基于编码可以流转到其他入口，并自动排版；做到一次接入，多端露出，信息在不同的入口露出规则如下:
+支持的设备和入口
+对应config.json内的device字段
+
+设备(type)	入口(entry)
+phone	“aod”, “statusbar”, “notification”, “lockscreen”, “headset”,""
+入口2 - 直板/大折/平板状态栏卡片	B1*+C1+C2*+C3+C4+C5+D1+D2+D3+D4+E
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*
+入口2 - 直板/大折/平板状态栏卡片	B1*+C1+C2*+C3+C4+C5+D1+D2+D3+D4+E
+入口3 - 直板/大折/平板状态栏气泡	A*
+入口4 - 直板/大折/平板锁屏	B1*+C1+C2*+C3+C4+C5+D1+D2+D3+D4+E
+入口5 - 直板/大折/平板 AOD	A1*+B1*+C2*
+入口6 - 外屏底部胶囊	A1*+B1*+C2*
+入口7 - 外屏通知中心	A1*+B1*+C2*
+入口11-耳机播报	Z
+示例
+<card-template entry="notification" category="symmetry">
+     <image level="0:A*" src="{{ $r('images.icon') }}"></image>
+     <text level="1:B*">{{ additional }}</text>
+
+   <div level="5:F" bg-image="{{ $r('images.background') }}">
+     <text level="1-1:B1">{{ content }}</text>
+     <div level="6-1:G1">
+       <image level="0-1:A1*" src="{{ $r('images.icon') }}"></image>
+       <text level="2-1:C1">{{ name }}</text>
+     </div>
+     <text level="2-2:C2*">{{ number }}</text>
+     <text level="2-3:C3">{{ checkIn }}</text>
+
+     <div level="6:G" if="showG">
+          <text level="2-4:C4">{{ departureLocation }}</text>
+          <text level="2-5:C5">{{ destLocation }}</text>
+
+          <text level="3-1:D1">{{ departureTime }}</text>
+          <text level="3-2:D2">{{ destTime }}</text>
+          <image level="3-3:D3" src="{{$r('images.airplane') }}"></image>
+          <text level="3-4:D4">{{ extraDays }}</text>
+     </div>
+
+     <button level="4:E" type="capsule" value="{{ $t('message.button') }}"></button>
+   </div>
+   <voice>{{ voiceLabel }}</voice>
+</card-template>
+
+音乐模板
+
+
+1、“*”表示为必选信息，无“*”为可选信息；
+
+2、[A*]、[B*] 主要用于状态栏胶囊/气泡的展示，[A1*]、[B1*] 用于其他触点的展示，两组信息相互独立；
+
+3、整体布局由[ G1显示区域 ] + [ G2操作区域 ] 两部分构成，G1显示区域数据为自动获取；
+
+4、[ D1* ]可为动图或图片，主要获取专辑图片，当未获取时显示音乐占位图，胶囊也同步展示位占位图；
+
+5、[ D2* ] 信息为ICON展示区域，可为动图或图片，[ A1* ] 主要展示应用品牌；
+
+6、[ D3* ] [ C2* ] [ C3* ] 区域为播放时间及播放进度显示，滑动/点击可调整播放进度；播放进度长按是高度发生变化；
+
+7、[ E ]为图形按钮， 建议使用简单易懂的图形按钮，避免使用表意模糊的图形按钮，[ E1* ] [E2* ] [E3* ] 为主操作按钮，[ E4* ]为媒介图标 ，可根据连接的播放介质不同而变化图，[ E5 ]为操作补充位非必显，便于后期扩展。
+
+8、[ F ] [ F1 ]胶囊/卡片背景为高斯模糊，不允许开发者自定义；
+
+声明模板
+// xxx.oml
+<card-template entry="notification" category="media">
+使用规范
+信息	描述	level	组件类型	必填	备注
+A*	图片/图标/动图/小组件	0:A*	<image>
+<lottie>
+<widget>	是	主要用于状态栏胶囊/气泡的展示
+B*	附件信息	1:B*	<text>	是	
+A1*	服务图标	0-1：A1*	<image>		
+B1*	核心信息1	1-1:B1*	<text>	是	
+C1*	辅助信息	2-1:C1*	<text>	否	
+D1*	图片/图标/动图	3-1:D1*	<image>``<lottie>	是	
+D2*	图片/图标/动图/小组件/频谱	3-2:D2*	<image>``<lottie>``<widget>``<spectrum>	是	
+D3*	进度条	3-3:D3*	<slider>	是	
+E1*	主要按钮 1*	4-1:E1*	<button>	是	
+E2*	主要按钮 2*	4-2:E2*	<button>	是	
+E3*	主要按钮 3*	4-3:E3*	<button>	是	
+E4*	辅助按钮 4*	4-4:E4*	<button>	是	
+E5	补位按钮 5	4-5: E5	<button>	否	
+Z	语音播报内容		<voice>	否	
+
+信息流转
+模板对接入的信息进行分级编码，信息基于编码可以流转到其他入口，并自动排版；做到一次接入，多端露出，信息在不同的入口露出规则如下:
+
+入口	展示信息
+入口1 - 直板/大折/平板状态栏胶囊	A*+B*+D2*+F*
+入口2 - 直板/大折/平板状态栏卡片	A1*+D1*+B1*+C1*+D2*+C2*+D3*+C3*+E1*+E2*+E3*+E4*+F1*+E5
+入口3 - 直板/大折/平板状态栏气泡	A*+F*
+入口4 - 直板/大折/平板锁屏	A1*+D1*+B1*+C1*+D2*+C2*+D3*+C3*+E1*+E2*+E3*+E4*+F1*+E5
+入口5 - 直板/大折/平板 AOD	D1*+A1*+B1*+C1*+D2*
+入口6 - 外屏底部胶囊	D1*+B1*+C1*+D2*+E1*+E2*+E3*
+入口7 - 外屏通知中心	D1*+B1*+C1*+D2*+E1*+E2*+E3*
+入口8 - 外屏息屏	D1*+B1*+C1*+D2*
+入口9 - 手表息屏	D1*
+入口10 - 手表亮屏	D1*
+入口11 - 手表抬手亮屏	D1*
+入口12 - 耳机播报	Z
+示例
+<template>
+  <card-template entry="notification" category="media">
+     <swiper data="{{ playerArr }}" onchange="changeItem" onclick="clickSwiper" index="{{ index }}">
+       <div>
+         <image level="0:A*" src="{{ $item.smallPic}}"></image>
+         <text level="1:B*">{{ $item.title }}</text>
+         <image level="0-1:A1*" src="{{ $r('images.logo') }}"></image>
+         <text level="1-1:B1*">{{ $item.songName }}</text>
+         <text level="2-1:C1*">{{ $item.artist }}</text>
+        
+         <image text level="3-1:D1*" src="{{ $item.picture }}"></image>
+         <spectrum level="3-2:D2*" value="{{ $item.spectrumData }}"></spectrum>
+         <slider level="3-3:D3*" value="{{ $item.value }}" duration="{{ $item.duration }}" onchange="onSliderChange"></slider >
+
+         <button level="4-1:E1*" type="circle" onclick="preBtnOnClick" icon="{{ $r('images.previous') }}" ></button>
+         <button level="4-2:E2*" type="circle" onclick="playOrPauseBtnOnClick" icon="{{ $r('images.pause') }}" ></button>
+         <button level="4-3:E3*" type="circle" onclick="nextBtnOnClick" icon="{{ $r('images.next') }}" ></button>
+         <button level="4-4:E4*" type="circle" onclick="deviceBtnOnClick" icon="{{ $r('images.ear') }}" ></button>
+         
+         <voice>{{ voiceLabel }}</voice>
+       </div>
+     </swiper>
+  </card-template>
+</template>
+
+<data>
+{
+  "uiData": {
+    "index": "0",
+    "jumplink": "",
+    "playerArr": [
+        {
+          "spectrumData": [1, 50, 20, 30, 41], // 
+          "smallPic": "./assets/images/xx.png",
+          "title": "Barbie The Album",
+          "logo": "./assets/images/logo.png",
+          "songName": "Barbie The Album",
+          "picture": "./assets/images/xx.png",
+          "artist":"Various artists",
+          "value": 139,
+          "uri": "xxx",
+          "duration": 337,
+          "mediaId": "111"
+        },
+        {
+          "spectrumData": [1, 50, 20, 30, 41], // 
+          "smallPic": "./assets/images/xx.png",
+          "title": "Barbie The Album",
+          "logo": "./assets/images/logo.png",
+          "songName": "Barbie The Album",
+          "picture": "./assets/images/xx.png",
+          "artist":"Various artists",
+          "value": 139,
+          "uri": "xxx",
+          "duration": 337,
+          "mediaId": "111"
+        },
+        {},
+        {},
+    ]
+        "playerArr1": [
+        {
+          "spectrumData": [1, 50, 20, 30, 41], // 
+          "smallPic": "./assets/images/xx.png",
+          "title": "Barbie The Album",
+          "logo": "./assets/images/logo.png",
+          "songName": "Barbie The Album",
+          "artist":"Various artists",
+          "value": 139,
+          "uri": "xxx",
+          "duration": 337,
+          "mediaId": "111"
+        },
+        {
+        },
+        {},
+        {},
+    ]
+  },
+  
+  "uiEvent": {
+     "changeItem": {
+        "type": "message",
+        "uri": "com.xxx.xxprovider",
+        "params": {
+           "index": "{{ index }}",// 获取切换到第几个播放器
+           "mediaId": "{{ $item.mediaId }}",
+         }
+     },
+     "onSliderChange": {
+        "type": "message",
+        "uri": "com.xxx.xxprovider",
+        "params": {
+           "mediaId": "{{ $item.mediaId }}",
+           "index": "{{ index }}", // 获取当前点击的是第几个播放器
+           "value": <number>   // 自动传递, 无需开发者声明
+        }
+     },
+     "clickSwiper": {
+       "type": "deeplink",
+        "uri": "com.xxx.Action",
+        "params": {
+          "aaa": "{{ 111 }}",
+          "playerArr": "{{ playerArr }}"
+          "index": "{{ index }}",// 获取当前点击的是第几个播放器
+        }
+     },
+     "preBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      },
+      "playOrPauseBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      },
+      "nextBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      },
+      "deviceBtnOnClick": {
+        "type": "message",
+        "uri": "com.oplus.mediacontroller.SlMediaCardProvider",
+        "params": {
+          "mediaId": "{{ $item.mediaId }}",
+        }
+      }
+  }
+}
+</data>
+
+1、新增波谱组件
+2、进度条组件调整
+3、锁屏入口，是否支持动态修改音乐实例数量

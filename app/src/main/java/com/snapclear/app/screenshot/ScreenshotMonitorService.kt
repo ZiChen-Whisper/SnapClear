@@ -99,6 +99,7 @@ class ScreenshotMonitorService : Service() {
                 ScreenshotObserver.detectAndAdvance(contentResolver) { uri ->
                     DiagnosticLogger.log(DiagnosticEventType.POLL, "轮询发现截图: $uri")
                     NotificationHelper.showScreenshotNotification(applicationContext, uri)
+                    ScreenshotEvents.notifyScreenshotDetected()
                 }
             } catch (e: Exception) {
                 DiagnosticLogger.log(DiagnosticEventType.ERROR, "轮询异常: ${e.message}")
@@ -115,6 +116,8 @@ class ScreenshotMonitorService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 先写入用户监听意愿，后续各系统级调度层才能在首次启动时注册成功。
+        setMonitoringEnabled(this, true)
         if (contentObserver == null) {
             DiagnosticLogger.log(DiagnosticEventType.SERVICE_START, "服务启动, 初始化4层检测...")
 
@@ -148,6 +151,7 @@ class ScreenshotMonitorService : Service() {
                     ScreenshotObserver.detectAndAdvance(contentResolver) { uri ->
                         Log.d(TAG, "FileObserver detected screenshot: $uri")
                         NotificationHelper.showScreenshotNotification(applicationContext, uri)
+                        ScreenshotEvents.notifyScreenshotDetected()
                     }
                 }
             )
@@ -160,6 +164,7 @@ class ScreenshotMonitorService : Service() {
                 onScreenshotDetected = { uri ->
                     Log.d(TAG, "ContentObserver detected screenshot: $uri")
                     NotificationHelper.showScreenshotNotification(applicationContext, uri)
+                    ScreenshotEvents.notifyScreenshotDetected()
                 }
             )
             contentObserver?.register()
@@ -176,6 +181,11 @@ class ScreenshotMonitorService : Service() {
             // 第 4 层：AlarmManager — 进程被杀后唤醒兜底
             ScreenshotAlarmReceiver.schedule(this)
             Log.d(TAG, "Layer 4 (AlarmManager) scheduled")
+
+            // 第 5 层：系统 JobScheduler 监听 MediaStore。观察者由系统持有，
+            // ColorOS 冻结应用线程时也能因新图片而唤醒本应用。
+            ScreenshotContentJobService.schedule(this)
+            Log.d(TAG, "Layer 5 (MediaStore content job) scheduled")
 
             // WakeLock：防止 CPU 休眠导致进程被国产 ROM 冻结
             val powerManager = getSystemService(POWER_SERVICE) as PowerManager
@@ -206,7 +216,16 @@ class ScreenshotMonitorService : Service() {
     override fun onDestroy() {
         DiagnosticLogger.log(DiagnosticEventType.SERVICE_STOP, "服务销毁, 停止所有检测层...")
         Log.d(TAG, "Service destroying, stopping all layers...")
-        ScreenshotAlarmReceiver.cancel(this)
+        val shouldRecover = isMonitoringEnabled(this)
+        if (shouldRecover) {
+            // OEM 回收服务时 onDestroy 也可能被调用。这不是用户关闭监听，保留用户
+            // 意愿并让 AlarmReceiver 拉起服务；否则退出最近任务后监听会永久失效。
+            ScreenshotAlarmReceiver.schedule(this)
+            ScreenshotContentJobService.schedule(this)
+        } else {
+            ScreenshotAlarmReceiver.cancel(this)
+            ScreenshotContentJobService.cancel(this)
+        }
 
         // 释放 WakeLock
         try {
@@ -229,8 +248,16 @@ class ScreenshotMonitorService : Service() {
         contentObserver?.unregister()
         contentObserver = null
         isRunning = false
-        setMonitoringEnabled(this, false)
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // ColorOS 清理最近任务后可能紧接着回收进程，提前确保恢复闹钟仍存在。
+        if (isMonitoringEnabled(this)) {
+            ScreenshotAlarmReceiver.schedule(this)
+            ScreenshotContentJobService.schedule(this)
+        }
+        super.onTaskRemoved(rootIntent)
     }
 
     private fun buildMonitorNotification() = NotificationCompat.Builder(

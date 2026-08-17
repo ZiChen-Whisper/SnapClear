@@ -1,0 +1,179 @@
+流体云卡片
+概述
+从API2.0 (ColorOS14.0)开始，泛在服务框架支持流体云开发，流体云作为泛在服务卡片的一种的展现形式，承载用户确定、实时信息的服务形态，例如正在通话中、正在录音中。
+
+OPPO提供了多种类型模板供开发者接入，开发者通过简单的配置接入后，便可让服务在手机、平板、车机耳机、多端的多个入口下呈现，实现系统或三方服务的信息流转与智能提醒, 让用户体验到行云流水的服务感受。开发者只需要在UPK的oml里配置模板、数据和事件，加上一些服务配置即可完成开发，
+
+工程配置
+platform-version
+流体云卡片创建工程时，需要选择API-2.0, 对应的platform-verison为2000000
+
+// config.json
+platform-verison: 2000000 // OS14.0 - API2.0
+Pantanal DevStudio工程创建，请参考“服务开发”， 流体云项目
+
+seedling-type
+流体云卡片在config.json里新增seedling-type字段，标识当前卡片服务类型。
+
+// config.json
+"interactive": {
+   "seedling-type": "live|immediate" // live=实时状态，immediate=即时提醒。
+}
+新增seedling-type字段:
+
+字段	说明
+live	实时状态类。如果服务没有配置seedling-type，默认取live
+immediate	即时提醒类。
+support
+card-config.json文件内support字段新增三种流体云形态。
+
+"card": {
+   "support": "notification_sm|notification_md|notification_lg"
+}
+字段	说明
+notification_sm	流体云胶囊形态（包含气泡）
+notification_md	流体云通知大胶囊形态
+notification_lg	流体云展开面板形态，如果在config.json内车机选择了"use-template: notification", 则在card-config.json里support字段必须支持这种形态。
+流体云模板
+流体云卡片工程结构和普通卡片结构一致，需要在oml文件内声明流体云模板
+
+<!-- xxx.oml -->
+<template>
+  <card-template entry="notification" category="模板类型">
+       <!-- 模板内容 -->
+  </card-template>
+</template>
+流体云模板不支持使用CSS来描述模板的布局和样式，支持绑定变量和点击事件。
+
+模板类型（category）	描述
+capsule	胶囊模板
+general	通用模板
+graphic	图文模板
+text	文本模板
+symmetry	对称模板
+了解更多流体云模板内容，请参考 “流体云模板”
+
+流体云组件
+针对流体云模板，只能使用特定的几种类型的组件，每个模板支持的组件类型略有不同。请开发者自行查阅
+
+组件	描述	属性
+div	基本容器，用来分隔块级元素组, 或用来呈现卡片整体背景信息	level bg-color bg-image bg-video loop
+image	图片组件，用来渲染展示图片	level src alt voice-label
+text	文本组件，当文本超长时会滚动进行展示，每滚动一次会停顿3s。	level color transform-effect voice-label
+span	作为<text>子组件提供文本修饰能力	color font-family
+button	按钮组件	level type disabled color bg-color value icon checked transition-on transition-off icon-on icon-off icon-disabled voice-label
+lottie	lottie动画组件	level src autoplay loop voice-label
+widget	圆环形小组件，支持进度展示	level show-progress value min max color bg-color transform-effect voice-label
+voice	语音播报组件，如果config.json内配置了headset入口，并且当用户佩戴了耳机，组件内容会通过耳机以语音的形式播报出来。	不支持
+progress	进度条组件，用来渲染展示图片，仅在通用模板中使用。	level color bg-color step current-step percent
+video	视频组件，用来播放一段视频	level src loop voice-label
+了解更多流体云组件细节，请参考 “流体云组件”
+
+点击事件
+对于流体云模板，如果想配置整张卡片的点击事件来拉起原生应用或快应用，有两种方式：
+1、在<card-template entry="notification" onclick="clickCard">绑定点击事件，但要注意，该层级只允许配置deeplink事件，不允许配置message事件。
+2、在card-config.json的click节点下配置事件。
+注：沉浸式场景下，不允许点击胶囊后展开面板同时点击面板拉起落地页（面板上按钮配置点击事件除外）
+
+胶囊事件示例
+
+<template>
+    <card-template category="graphic" entry="notification" onclick="cardClick">
+    </card-template>
+</template>
+<data>
+ "uiEvent": {
+            "cardClick": {
+                "type": "deeplink",
+                "package": "com.xxx.xxx",
+                "uri": "nativeapp://xxx",
+            }
+        }
+</data>
+胶囊事件处理逻辑
+
+
+其它
+暗色模式
+对于模板内可以设置颜色的元素，如果想要实现自动暗色模式，需要使用资源ID来配置color或bg-color。
+当模板设置背景图片或者背景视频时，框架会强制切换成暗色模式，选择图片和视频资源时，要保证在暗色模式下有良好的视觉展示效果。
+
+<button level="4-1:E1*" type="circle" icon="{{ $r('images.button1') }}" 
+多页面
+流体云服务卡片从API3.0.0开始支持多页面切换。
+
+在同一个卡片UPK里，通常会面临在不同的时机下需要展示一张完全不同界面的卡片，比如在宿主因为某些权限未授权或者其他原因导致获取不到数据时，开发者需要展示一张引导页，当权限授予后又需要切换到正常展示业务数据的模板，为此泛在服务框架引入了多页面能力。
+
+新增页面步骤：
+需要在config.json里声明
+
+pages: [
+   "pages/index",
+   "pages/default"
+]
+pages列表下第一个页面为默认页面。
+
+新建 src/pages/default.oml有宿主卡片和无宿主卡片，oml都必须包含<template><style><data>节点。
+根据当前卡片希望在哪些手机入口进行展示来填写<card-template>, 见本文档多入口流转章节, 例如：
+
+<card-template entry="notification" category="modular">
+    <compact>
+          // 流体云胶囊形态
+          <leading>
+              // 胶囊态左侧信息
+          </leading>
+          <trailing>
+              // 胶囊态右侧信息
+          </trailing>
+      </compact>
+
+    <expanded bg-color="#000000" border-color="#0000ff" level="F1*" bg-image="{{ $r('images.background') }}">
+        // 流体云展开形态
+        <leading>
+            // 展开态顶部信息
+        </leading>
+        <center category="common">
+            // 展开态核心信息
+        </center>
+        <trailing>
+            // 展开态底部信息
+        </trailing>
+    </expanded>
+    <voice>{{ voiceLabel }}</voice>
+    <image level="A1*" src="assets/images/symmetry_logo.png"></image>
+</card-template>
+切换页面
+在JS代码或宿主apk的代码内在调用setData时通过传递pageId参数来切换页面, 例如：
+
+无宿主：
+
+// seedling.js
+onCreate(cardInfo) {
+    this.setData(cardInfo, {}/*UI数据*/, { pageId: 'pages/default' })
+}
+有宿主：
+
+// 宿主App
+override fun onCardCreate(context: Context, card: SeedlingCard) {
+    val option= Bundle()
+    option.putString("pageId","pages/default")
+    updateData(card, bundle，option)
+}
+有宿主接入请参考《服务接入SDK使用指南》。
+注意：在更新数据时要求开发者必须要传递pageId字段，否则会加载默认页面。
+
+开发工具调试
+注：此章节仅简单介绍ide开发工具调试，详细开发参考ide使用指南
+4.1、新建卡片服务
+点击IDE左上角”创建工程“按钮弹出创建工程对话框
+image.png
+
+4.2、真机调试推送卡片
+在工程项目中，点击真机调试，选中推送卡片。
+image.png
+
+4.3、手机上真实效果
+手机上效果展示：
+image.png
+image.png
+image.png

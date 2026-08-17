@@ -1,523 +1,492 @@
 package com.snapclear.app.ui
 
-import android.Manifest
-import android.os.Build
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.*
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.snapclear.app.R
-import com.snapclear.app.permission.PermissionManager
-import com.snapclear.app.ui.theme.SnapClearTheme
+import com.snapclear.app.screenshot.ScreenshotItem
 import com.snapclear.app.ui.theme.StatusDenied
 import com.snapclear.app.ui.theme.StatusGranted
 
 /**
- * 主界面
+ * 主界面（双 Tab + 悬浮毛玻璃胶囊底部导航）
  *
- * 显示权限状态列表、电池优化引导、监听开关按钮。
- * 支持 edge-to-edge 沉浸式显示，内容自动避开系统导航栏区域。
- * 底部 Tab 可切换到诊断面板，方便排查问题。
+ * - 主页 Tab：监听卡片 + 最近截图网格
+ * - 管理 Tab：权限管理 / 诊断面板入口卡片
+ * - Tab 切换：AnimatedContent 淡入淡出 + 胶囊药丸 spring 滑动
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    permissionStates: Map<String, Boolean>,
     isMonitoring: Boolean,
-    exactAlarmGranted: Boolean,
-    batteryOptimizationExempt: Boolean,
-    onRequestPermission: (String) -> Unit,
-    onOpenAppSettings: () -> Unit,
-    onOpenExactAlarmSettings: () -> Unit,
-    onRequestBatteryOptimization: () -> Unit,
+    allPermissionsGranted: Boolean,
+    permissionGrantedCount: Int,
+    permissionTotalCount: Int,
+    screenshots: List<ScreenshotItem>,
     onToggleMonitoring: () -> Unit,
-    onRunDetection: () -> Unit,
-    onCreateTestScreenshot: () -> Unit,
-    onSendTestNotification: () -> Unit,
+    onCopyDeleteScreenshot: (Uri) -> Unit,
+    onDeleteScreenshot: (Uri) -> Unit,
+    onScreenshotClick: (Uri, android.view.View, android.graphics.Rect) -> Unit,
+    permissionsIntent: Intent,
+    diagnosticsIntent: Intent,
     modifier: Modifier = Modifier
 ) {
-    val requiredPermissions = PermissionManager.getRequiredPermissions()
-    val allGranted = requiredPermissions.all { permissionStates[it] == true }
-    val needsExactAlarm = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
-    // Tab 状态：0 = 主界面，1 = 诊断面板
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                    label = { Text("主页") }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.BugReport, contentDescription = null) },
-                    label = { Text("诊断") }
-                )
-            }
-        },
-        // 让内容背景延伸到导航栏下方（小白条沉浸显示）
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { paddingValues ->
-        if (selectedTab == 0) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = paddingValues.calculateTopPadding())
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // 权限状态区域
-                Text(
-                    text = "权限状态",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                requiredPermissions.forEach { permission ->
-                    val isGranted = permissionStates[permission] == true
-                    val (icon, name, description) = getPermissionInfo(permission)
-
-                    PermissionCard(
-                        icon = icon,
-                        name = name,
-                        description = description,
-                        isGranted = isGranted,
-                        onRequestPermission = {
-                            if (isGranted) {
-                                onOpenAppSettings()
-                            } else {
-                                onRequestPermission(permission)
-                            }
-                        }
-                    )
-                }
-
-                // 精确闹钟权限（后台深度休眠时截屏检测必需）
-                AnimatedVisibility(visible = needsExactAlarm) {
-                    ExactAlarmCard(
-                        isGranted = exactAlarmGranted,
-                        onOpenSettings = onOpenExactAlarmSettings
-                    )
-                }
-
-                // 电池优化豁免卡片
-                BatteryOptimizationCard(
-                    isExempt = batteryOptimizationExempt,
-                    onRequestExemption = onRequestBatteryOptimization
-                )
-
-                HorizontalDivider()
-
-                // 监听控制区域
-                MonitoringControlCard(
-                    isMonitoring = isMonitoring,
-                    allGranted = allGranted,
-                    onToggleMonitoring = onToggleMonitoring,
-                    onOpenAppSettings = onOpenAppSettings
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                // 导航栏底部留白，确保最后一张卡片可滚动到小白条上方
-                Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars))
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = paddingValues.calculateTopPadding())
-            ) {
-                com.snapclear.app.diagnostic.DiagnosticsScreen(
-                    onRunDetection = onRunDetection,
-                    onCreateTestScreenshot = onCreateTestScreenshot,
-                    onSendTestNotification = onSendTestNotification
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PermissionCard(
-    icon: ImageVector,
-    name: String,
-    description: String,
-    isGranted: Boolean,
-    onRequestPermission: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = if (isGranted)
-                        stringResource(R.string.permission_granted)
-                    else
-                        stringResource(R.string.permission_denied),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isGranted) StatusGranted else StatusDenied,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                TextButton(onClick = onRequestPermission) {
-                    Text(
-                        text = if (isGranted)
-                            stringResource(R.string.permission_goto_settings)
-                        else
-                            "授权"
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExactAlarmCard(
-    isGranted: Boolean,
-    onOpenSettings: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isGranted)
-                MaterialTheme.colorScheme.surfaceVariant
-            else
-                MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Alarm,
-                contentDescription = null,
-                tint = if (isGranted) StatusGranted else StatusDenied,
-                modifier = Modifier.size(32.dp)
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "精确闹钟权限",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = if (isGranted)
-                        "后台深度休眠时及时检测截图"
-                    else
-                        "未开启将导致后台截图检测延迟",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = if (isGranted)
-                        stringResource(R.string.permission_granted)
-                    else
-                        stringResource(R.string.permission_denied),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isGranted) StatusGranted else StatusDenied,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                TextButton(onClick = onOpenSettings) {
-                    Text(
-                        text = if (isGranted)
-                            stringResource(R.string.permission_goto_settings)
-                        else
-                            "去开启"
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BatteryOptimizationCard(
-    isExempt: Boolean,
-    onRequestExemption: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isExempt)
-                MaterialTheme.colorScheme.surfaceVariant
-            else
-                MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.BatteryAlert,
-                contentDescription = null,
-                tint = if (isExempt) StatusGranted else StatusDenied,
-                modifier = Modifier.size(32.dp)
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.battery_optimization_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = if (isExempt)
-                        stringResource(R.string.battery_optimization_granted)
-                    else
-                        stringResource(R.string.battery_optimization_denied),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = if (isExempt)
-                        stringResource(R.string.permission_granted)
-                    else
-                        stringResource(R.string.permission_denied),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isExempt) StatusGranted else StatusDenied,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                TextButton(onClick = onRequestExemption) {
-                    Text(
-                        text = if (isExempt)
-                            stringResource(R.string.battery_optimization_goto_settings)
-                        else
-                            stringResource(R.string.battery_optimization_request)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MonitoringControlCard(
-    isMonitoring: Boolean,
-    allGranted: Boolean,
-    onToggleMonitoring: () -> Unit,
-    onOpenAppSettings: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (allGranted) {
-                Text(
-                    text = stringResource(R.string.all_permissions_granted),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = StatusGranted,
-                    fontWeight = FontWeight.Medium
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.permission_required),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = StatusDenied,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    if (allGranted) {
-                        onToggleMonitoring()
-                    } else {
-                        onOpenAppSettings()
-                    }
+    ) { _ ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    fadeIn(tween(220)).togetherWith(fadeOut(tween(180)))
                 },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (allGranted)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.secondary
-                )
-            ) {
-                Icon(
-                    imageVector = if (isMonitoring) Icons.Default.Stop else Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (isMonitoring)
-                        stringResource(R.string.stop_monitoring)
-                    else
-                        stringResource(R.string.start_monitoring)
-                )
+                label = "tabSwitch"
+            ) { tab ->
+                when (tab) {
+                    0 -> HomeTabContent(
+                        isMonitoring = isMonitoring,
+                        allGranted = allPermissionsGranted,
+                        screenshots = screenshots,
+                        onToggle = onToggleMonitoring,
+                        onCopyDelete = onCopyDeleteScreenshot,
+                        onDelete = onDeleteScreenshot,
+                        onScreenshotClick = onScreenshotClick
+                    )
+                    1 -> ManageTabContent(
+                        allPermissionsGranted = allPermissionsGranted,
+                        permissionGrantedCount = permissionGrantedCount,
+                        permissionTotalCount = permissionTotalCount,
+                        permissionsIntent = permissionsIntent,
+                        diagnosticsIntent = diagnosticsIntent
+                    )
+                }
             }
 
-            if (isMonitoring) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.monitoring_active),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = StatusGranted
-                )
-            }
+            FloatingCapsuleBottomBar(
+                tabs = listOf(HomeTab, ManageTab),
+                selectedIndex = selectedTab,
+                onTabSelected = { selectedTab = it },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 }
 
 /**
- * 根据权限名返回对应的图标、显示名称和描述
+ * 主页 Tab：监听卡片 + 最近截图网格
+ *
+ * 使用 LazyColumn 承载，截图按 2 列分组 chunked(2) 渲染，
+ * 顶部状态栏 inset + 底部胶囊导航留白。
  */
-private fun getPermissionInfo(permission: String): Triple<ImageVector, String, String> {
-    return when {
-        permission == Manifest.permission.READ_MEDIA_IMAGES ||
-        permission == Manifest.permission.READ_EXTERNAL_STORAGE -> {
-            Triple(
-                Icons.Default.Image,
-                "存储/媒体权限",
-                "用于读取截图文件"
+@Composable
+private fun HomeTabContent(
+    isMonitoring: Boolean,
+    allGranted: Boolean,
+    screenshots: List<ScreenshotItem>,
+    onToggle: () -> Unit,
+    onCopyDelete: (Uri) -> Unit,
+    onDelete: (Uri) -> Unit,
+    onScreenshotClick: (Uri, android.view.View, android.graphics.Rect) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 20.dp,
+            end = 20.dp,
+            top = 8.dp,
+            bottom = 120.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item { AppHeader(isMonitoring = isMonitoring) }
+        item {
+            MonitoringCard(
+                isMonitoring = isMonitoring,
+                allGranted = allGranted,
+                onToggle = onToggle
             )
         }
-        permission == Manifest.permission.POST_NOTIFICATIONS -> {
-            Triple(
-                Icons.Default.Notifications,
-                "通知权限",
-                "用于发送截图操作通知"
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "最近截图",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "${screenshots.size} 张 · 近 30 天",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (screenshots.isEmpty()) {
+            item { EmptyScreenshotsState() }
+        } else {
+            // 2 列网格：按行 chunked。行 key 绑定行内截图的 URI：
+            // 截图增删后行内容变化即重建 Composable，避免复用导致缩略图与条目错位。
+            items(
+                items = screenshots.chunked(2),
+                key = { row -> row.joinToString("|") { it.uri.toString() } }
+            ) { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowItems.forEach { item ->
+                        Box(modifier = Modifier.weight(1f)) {
+                            ScreenshotCard(
+                                item = item,
+                                onCopyDelete = { onCopyDelete(item.uri) },
+                                onDelete = { onDelete(item.uri) },
+                                onClick = { uri, view, bounds -> onScreenshotClick(uri, view, bounds) }
+                            )
+                        }
+                    }
+                    // 奇数个时，最后一行只 1 张，补一个占位
+                    if (rowItems.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+        item { TipCard() }
+    }
+}
+
+/**
+ * 管理 Tab：权限管理 + 诊断面板入口卡片
+ */
+@Composable
+private fun ManageTabContent(
+    allPermissionsGranted: Boolean,
+    permissionGrantedCount: Int,
+    permissionTotalCount: Int,
+    permissionsIntent: Intent,
+    diagnosticsIntent: Intent
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "管理",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        SeamlessEntryCard(
+            iconRes = R.drawable.ic_entry_shield,
+            title = "权限管理",
+            subtitle = if (allPermissionsGranted)
+                "全部权限已就绪"
+            else
+                "$permissionGrantedCount / $permissionTotalCount 项已授权",
+            intent = permissionsIntent,
+            statusText = if (allPermissionsGranted) "已就绪" else "待授权",
+            statusColor = if (allPermissionsGranted) StatusGranted else StatusDenied
+        )
+
+        SeamlessEntryCard(
+            iconRes = R.drawable.ic_entry_bug,
+            title = "诊断面板",
+            subtitle = "查看检测管线状态与事件日志",
+            intent = diagnosticsIntent
+        )
+
+        TipCard()
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars))
+        Spacer(modifier = Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun AppHeader(isMonitoring: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            // 使用 seedream 生成的 3D 应用图标（相框+对勾 3D 质感）
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
             )
         }
-        permission == Manifest.permission.SYSTEM_ALERT_WINDOW -> {
-            Triple(
-                Icons.AutoMirrored.Filled.OpenInNew,
-                "悬浮窗权限",
-                "用于显示快捷操作（后续阶段）"
+
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "SnapClear",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "截图一键清理 · 安静后台守护",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        else -> {
-            Triple(Icons.Default.Info, permission, "")
+
+        StatusBadge(
+            text = if (isMonitoring) "监听中" else "已停止",
+            color = if (isMonitoring) StatusGranted else MaterialTheme.colorScheme.outline
+        )
+    }
+}
+
+@Composable
+private fun MonitoringCard(
+    isMonitoring: Boolean,
+    allGranted: Boolean,
+    onToggle: () -> Unit
+) {
+    val bgColor = if (isMonitoring)
+        MaterialTheme.colorScheme.primaryContainer
+    else
+        MaterialTheme.colorScheme.surfaceVariant
+    val onBgColor = if (isMonitoring)
+        MaterialTheme.colorScheme.onPrimaryContainer
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(bgColor)
+            .padding(20.dp)
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isMonitoring) Icons.Default.Verified else Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = if (isMonitoring) StatusGranted else onBgColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isMonitoring) "正在监听截图" else "监听已停止",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = onBgColor
+                    )
+                    Text(
+                        text = if (isMonitoring)
+                            "新截图将以流体云提醒，可一键拷贝并删除"
+                        else
+                            "开启后自动检测新截图并提醒",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = onBgColor.copy(alpha = 0.8f)
+                    )
+                }
+            }
+
+            if (!allGranted) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "部分权限未授予，可能影响后台检测",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (isMonitoring) {
+                OutlinedButton(
+                    onClick = onToggle,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("停止监听")
+                }
+            } else {
+                Button(
+                    onClick = onToggle,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("开始监听截图")
+                }
+            }
         }
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-private fun MainScreenPreview() {
-    SnapClearTheme {
-        MainScreen(
-            permissionStates = mapOf(
-                Manifest.permission.READ_MEDIA_IMAGES to true,
-                Manifest.permission.POST_NOTIFICATIONS to false
-            ),
-            isMonitoring = false,
-            exactAlarmGranted = false,
-            batteryOptimizationExempt = false,
-            onRequestPermission = {},
-            onOpenAppSettings = {},
-            onOpenExactAlarmSettings = {},
-            onRequestBatteryOptimization = {},
-            onToggleMonitoring = {},
-            onRunDetection = {},
-            onCreateTestScreenshot = {},
-            onSendTestNotification = {}
+private fun TipCard() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.ContentCut,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp)
         )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "检测到新截图后，流体云会展示 60 秒倒计时，超时自动关闭。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun EmptyScreenshotsState() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(160.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Image,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "近 30 天暂无截图",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+            Text(
+                text = "截图后此处将自动展示",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            )
+        }
     }
 }
