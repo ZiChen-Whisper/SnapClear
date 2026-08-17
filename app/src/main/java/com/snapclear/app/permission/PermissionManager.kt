@@ -1,6 +1,7 @@
 package com.snapclear.app.permission
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.ComponentName
@@ -11,7 +12,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.core.content.ContextCompat
+import com.snapclear.app.screenshot.ScreenshotAccessibilityService
 
 /**
  * 权限管理工具类
@@ -64,6 +67,44 @@ object PermissionManager {
                 brand.contains("oppo") ||
                 brand.contains("oneplus") ||
                 brand.contains("realme")
+    }
+
+    /** 检查系统是否已启用 SnapClear 的截图实时检测无障碍服务。 */
+    fun isScreenshotAccessibilityEnabled(context: Context): Boolean {
+        val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE)
+            as? AccessibilityManager ?: return false
+        val expected = ComponentName(context, ScreenshotAccessibilityService::class.java)
+        return manager
+            .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { info ->
+                val serviceInfo = info.resolveInfo?.serviceInfo ?: return@any false
+                ComponentName(serviceInfo.packageName, serviceInfo.name) == expected
+            }
+    }
+
+    /**
+     * 无障碍权限不能通过运行时弹窗申请，只能由用户在系统设置中手动开启。
+     * 优先打开 SnapClear 服务详情；ROM 不支持时回退到无障碍服务列表。
+     */
+    fun openScreenshotAccessibilitySettings(context: Context) {
+        val component = ComponentName(context, ScreenshotAccessibilityService::class.java)
+        // ACTION_ACCESSIBILITY_DETAILS_SETTINGS 尚未作为公开 SDK 常量暴露，
+        // 但 AOSP/ColorOS Settings 均使用这个稳定 action；失败时回退到服务列表。
+        val detailIntent = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").apply {
+            putExtra(Intent.EXTRA_COMPONENT_NAME, component)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(detailIntent)
+        } catch (_: Exception) {
+            try {
+                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            } catch (_: Exception) {
+                openAppSettings(context)
+            }
+        }
     }
 
     /**
@@ -123,6 +164,55 @@ object PermissionManager {
             // 最终回退到应用详情页
             openAppSettings(context)
         }
+    }
+
+    /**
+     * 打开 ColorOS 自有的后台耗电/自启动页面。
+     *
+     * Android 的电池优化白名单不覆盖 Hans/Athena 等厂商冻结策略，而且这些开关
+     * 没有公开的只读 API，因此只能把用户带到最接近的厂商页面手动确认。
+     */
+    fun openOppoBackgroundSettings(context: Context) {
+        val candidates = listOf(
+            Intent().apply {
+                component = ComponentName(
+                    "com.oplus.battery",
+                    "com.oplus.powermanager.fuelgaue.PowerUsageModelActivity"
+                )
+                putExtra("pkgName", context.packageName)
+                putExtra("packageName", context.packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+            Intent().apply {
+                component = ComponentName(
+                    "com.coloros.oppoguardelf",
+                    "com.coloros.powermanager.fuelgaue.PowerUsageModelActivity"
+                )
+                putExtra("pkgName", context.packageName)
+                putExtra("packageName", context.packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+            createOppoIntent(
+                "com.coloros.safecenter",
+                "com.coloros.safecenter.permission.startup.StartupAppListActivity"
+            ),
+            createOppoIntent(
+                "com.oppo.safe",
+                "com.oppo.safe.permission.startup.StartupAppListActivity"
+            )
+        )
+
+        for (intent in candidates) {
+            try {
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(intent)
+                    return
+                }
+            } catch (_: Exception) {
+                // 尝试下一个 ColorOS 版本对应的组件。
+            }
+        }
+        openAppSettings(context)
     }
 
     /**

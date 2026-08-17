@@ -141,10 +141,22 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == "com.snapclear.app.action.COPY_DELETE") {
             val uriString = intent.getStringExtra(NotificationHelper.EXTRA_IMAGE_URI)
+            val notificationId = intent.getIntExtra(NotificationHelper.EXTRA_NOTIFICATION_ID, 0)
+
+            // 先消费 Action，避免 Activity 因配置变化重建时重复执行拷贝/删除。
+            intent.action = null
+
             if (uriString != null) {
                 val uri = Uri.parse(uriString)
                 com.snapclear.app.clipboard.ClipboardHelper.copyAndDelete(this, uri)
+            } else {
+                Toast.makeText(this, R.string.toast_copy_failed, Toast.LENGTH_SHORT).show()
             }
+
+            if (notificationId > 0) {
+                NotificationHelper.cancelNotification(this, notificationId)
+            }
+            ScreenshotEvents.notifyScreenshotListChanged()
         }
     }
 
@@ -161,17 +173,22 @@ class MainActivity : ComponentActivity() {
         val batteryOk = PermissionManager.isBatteryOptimizationExempt(this)
         val promotedOk = Build.VERSION.SDK_INT < 36 ||
             PermissionManager.canPostPromotedNotifications(this)
+        val accessibilityRequired = PermissionManager.isOppoDevice()
+        val accessibilityOk = !accessibilityRequired ||
+            PermissionManager.isScreenshotAccessibilityEnabled(this)
 
         val specialCount = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 1 else 0) + 1 +
-            (if (Build.VERSION.SDK_INT >= 36) 1 else 0)
+            (if (Build.VERSION.SDK_INT >= 36) 1 else 0) +
+            (if (accessibilityRequired) 1 else 0)
         val specialGranted = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 1 else 0) *
             (if (exactAlarmOk) 1 else 0) + (if (batteryOk) 1 else 0) +
-            (if (Build.VERSION.SDK_INT >= 36) (if (promotedOk) 1 else 0) else 0)
+            (if (Build.VERSION.SDK_INT >= 36) (if (promotedOk) 1 else 0) else 0) +
+            (if (accessibilityRequired && accessibilityOk) 1 else 0)
 
         permissionGrantedCount = requiredGranted + specialGranted
         permissionTotalCount = required.size + specialCount
         allPermissionsGranted = requiredGranted == required.size &&
-            exactAlarmOk && batteryOk && promotedOk
+            exactAlarmOk && batteryOk && promotedOk && accessibilityOk
     }
 
     /** 刷新最近截图列表（包含未运行期间产生的截图） */
@@ -189,6 +206,12 @@ class MainActivity : ComponentActivity() {
         } else {
             if (!PermissionManager.checkAllGranted(this)) {
                 Toast.makeText(this, "请先在权限管理中授予权限", Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (PermissionManager.isOppoDevice() &&
+                !PermissionManager.isScreenshotAccessibilityEnabled(this)
+            ) {
+                Toast.makeText(this, "请先在权限管理中开启截图实时检测", Toast.LENGTH_LONG).show()
                 return
             }
             startMonitoring()

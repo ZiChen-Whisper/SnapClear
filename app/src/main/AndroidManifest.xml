@@ -55,6 +55,15 @@
             </intent-filter>
         </activity>
 
+        <!-- 通知操作透明中转页：不展示主页，仅执行复制并拉起系统删除确认 -->
+        <activity
+            android:name=".notification.NotificationActionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SnapClear.NotificationAction" />
+
         <!-- 权限管理二级菜单（由主页卡片经 OPPO 无缝动画启动） -->
         <activity
             android:name=".PermissionsActivity"
@@ -86,6 +95,24 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Continuous screenshot monitoring for clipboard management" />
+        </service>
+
+        <!--
+            ColorOS 会冻结普通前台服务及其 MediaStore 回调。无障碍事件由系统主动
+            投递，在 OPPO 截图浮层出现时唤醒进程并立即执行一次 MediaStore 检测。
+            服务不读取窗口内容，只响应系统窗口集合变化与截图组件窗口状态事件。
+        -->
+        <service
+            android:name=".screenshot.ScreenshotAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/screenshot_accessibility_service" />
         </service>
 
         <!-- 系统级 MediaStore 变化触发器：应用线程被冻结时仍可唤醒检测 -->

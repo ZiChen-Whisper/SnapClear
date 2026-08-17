@@ -193,6 +193,17 @@ fun DiagnosticsScreen(
                 DiagCard(title = "服务状态") {
                     DiagRow("服务运行中", d.serviceRunning)
                     DiagRow("监听意愿 (persisted)", d.monitoringEnabled)
+                    DiagRow("ColorOS AlarmClock watchdog", d.oppoWatchdogEnabled)
+                    InfoRow(
+                        "轮询心跳年龄",
+                        if (d.heartbeatAgeMs == Long.MAX_VALUE) "尚无心跳" else "${d.heartbeatAgeMs} ms",
+                        valueColor = when {
+                            d.heartbeatAgeMs == Long.MAX_VALUE -> StatusDenied
+                            d.heartbeatAgeMs <= 20_000L -> StatusGranted
+                            d.heartbeatAgeMs <= 45_000L -> StatusWarning
+                            else -> StatusDenied
+                        }
+                    )
                     DiagRow("通知权限", d.notificationPermissionGranted)
                     DiagRow("媒体权限", d.mediaPermissionGranted)
                     DiagRow("精确闹钟权限", d.exactAlarmGranted)
@@ -442,6 +453,10 @@ private fun buildDiagnosticText(
         sb.appendLine("## 服务状态")
         sb.appendLine("- 服务运行中: ${data.serviceRunning}")
         sb.appendLine("- 监听意愿 (persisted): ${data.monitoringEnabled}")
+        sb.appendLine("- ColorOS AlarmClock watchdog: ${data.oppoWatchdogEnabled}")
+        sb.appendLine(
+            "- 轮询心跳年龄: ${if (data.heartbeatAgeMs == Long.MAX_VALUE) "尚无心跳" else "${data.heartbeatAgeMs} ms"}"
+        )
         sb.appendLine("- 通知权限: ${data.notificationPermissionGranted}")
         sb.appendLine("- 媒体权限: ${data.mediaPermissionGranted}")
         sb.appendLine("- 精确闹钟权限: ${data.exactAlarmGranted}")

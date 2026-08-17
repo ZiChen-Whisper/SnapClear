@@ -14,6 +14,8 @@
     <string name="permission_rationale_title">需要权限</string>
     <string name="permission_rationale_storage">SnapClear 需要访问您的截图文件才能在检测到新截图时提供快捷操作。</string>
     <string name="permission_rationale_notification">SnapClear 需要通知权限才能在新截图时弹出操作窗口。</string>
+    <string name="accessibility_service_label">SnapClear 截图实时检测</string>
+    <string name="accessibility_service_description">监听系统窗口的出现与消失，并在 OPPO/ColorOS 截图浮层出现时唤醒 SnapClear，以便立即检测新截图并发送流体云；不会读取窗口内容、屏幕文字、输入内容或操作其他应用。</string>
 
     <!-- 电池优化 -->
     <string name="battery_optimization_title">电池优化豁免</string>

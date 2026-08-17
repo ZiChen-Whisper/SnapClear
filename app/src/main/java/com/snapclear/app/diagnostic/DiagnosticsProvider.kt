@@ -21,6 +21,8 @@ object DiagnosticsProvider {
     data class DiagnosticsData(
         val serviceRunning: Boolean,
         val monitoringEnabled: Boolean,
+        val heartbeatAgeMs: Long,
+        val oppoWatchdogEnabled: Boolean,
         val lastDetectedId: Long,
         val persistedLastDetectedId: Long,
         val notificationPermissionGranted: Boolean,
@@ -55,6 +57,8 @@ object DiagnosticsProvider {
         // 服务状态
         val serviceRunning = ScreenshotMonitorService.isRunning
         val monitoringEnabled = ScreenshotMonitorService.isMonitoringEnabled(context)
+        val heartbeatAgeMs = ScreenshotMonitorService.heartbeatAgeMs(context)
+        val oppoWatchdogEnabled = PermissionManager.isOppoDevice() && monitoringEnabled
 
         // lastDetectedId
         val lastDetectedId = ScreenshotObserver.lastDetectedId
@@ -170,6 +174,8 @@ object DiagnosticsProvider {
         return DiagnosticsData(
             serviceRunning = serviceRunning,
             monitoringEnabled = monitoringEnabled,
+            heartbeatAgeMs = heartbeatAgeMs,
+            oppoWatchdogEnabled = oppoWatchdogEnabled,
             lastDetectedId = lastDetectedId,
             persistedLastDetectedId = persisted,
             notificationPermissionGranted = notifGranted,

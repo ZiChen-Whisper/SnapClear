@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -59,22 +60,27 @@ fun PermissionsScreen(
     exactAlarmGranted: Boolean,
     batteryOptimizationExempt: Boolean,
     promotedNotificationsGranted: Boolean,
+    screenshotAccessibilityEnabled: Boolean,
     onBack: () -> Unit,
     onRequestPermission: (String) -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenExactAlarmSettings: () -> Unit,
     onRequestBatteryOptimization: () -> Unit,
+    onOpenOppoBackgroundSettings: () -> Unit,
+    onOpenScreenshotAccessibilitySettings: () -> Unit,
     onOpenPromotedNotificationsSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val requiredPermissions = PermissionManager.getRequiredPermissions()
     val grantedCount = requiredPermissions.count { permissionStates[it] == true }
+    val needsAccessibility = PermissionManager.isOppoDevice()
     val extraCount = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 1 else 0) + 1 +
-        (if (Build.VERSION.SDK_INT >= 36) 1 else 0)
+        (if (Build.VERSION.SDK_INT >= 36) 1 else 0) + (if (needsAccessibility) 1 else 0)
     val totalCount = requiredPermissions.size + extraCount
     val extraGranted = (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || exactAlarmGranted) &&
         batteryOptimizationExempt &&
-        (Build.VERSION.SDK_INT < 36 || promotedNotificationsGranted)
+        (Build.VERSION.SDK_INT < 36 || promotedNotificationsGranted) &&
+        (!needsAccessibility || screenshotAccessibilityEnabled)
     val allGranted = grantedCount == requiredPermissions.size && extraGranted
     val needsExactAlarm = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val needsPromoted = Build.VERSION.SDK_INT >= 36
@@ -141,12 +147,35 @@ fun PermissionsScreen(
                     Icons.Default.BatteryAlert,
                 name = "电池优化豁免",
                 description = if (batteryOptimizationExempt)
-                    "已加入白名单，后台运行不受限制"
+                    "系统白名单已开启；ColorOS 后台活动仍需单独确认"
                 else
                     "未豁免，后台服务可能被系统杀死",
                 isGranted = batteryOptimizationExempt,
                 onRequest = onRequestBatteryOptimization
             )
+
+            if (PermissionManager.isOppoDevice()) {
+                PermissionCard(
+                    icon = Icons.Default.TouchApp,
+                    name = "截图实时检测（无障碍）",
+                    description = if (screenshotAccessibilityEnabled)
+                        "已开启；监听系统窗口增删，不读取窗口或输入内容"
+                    else
+                        "需手动开启，否则 ColorOS 后台冻结时无法实时通知",
+                    isGranted = screenshotAccessibilityEnabled,
+                    actionLabel = "去开启",
+                    onRequest = onOpenScreenshotAccessibilitySettings
+                )
+
+                PermissionCard(
+                    icon = Icons.Default.BatteryAlert,
+                    name = "ColorOS 后台运行",
+                    description = "请确认允许后台活动和自启动，并在最近任务中锁定 SnapClear",
+                    isGranted = false,
+                    actionLabel = "去设置",
+                    onRequest = onOpenOppoBackgroundSettings
+                )
+            }
 
             if (needsPromoted) {
                 PermissionCard(
@@ -220,6 +249,7 @@ private fun PermissionCard(
     name: String,
     description: String,
     isGranted: Boolean,
+    actionLabel: String = "授权",
     onRequest: () -> Unit
 ) {
     Box(
@@ -286,7 +316,7 @@ private fun PermissionCard(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Text("授权", fontWeight = FontWeight.SemiBold)
+                    Text(actionLabel, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

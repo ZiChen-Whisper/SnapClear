@@ -29,6 +29,7 @@ class PermissionsActivity : ComponentActivity() {
     private var exactAlarmGranted by mutableStateOf(false)
     private var batteryOptimizationExempt by mutableStateOf(false)
     private var promotedNotificationsGranted by mutableStateOf(false)
+    private var screenshotAccessibilityEnabled by mutableStateOf(false)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -57,6 +58,7 @@ class PermissionsActivity : ComponentActivity() {
                     exactAlarmGranted = exactAlarmGranted,
                     batteryOptimizationExempt = batteryOptimizationExempt,
                     promotedNotificationsGranted = promotedNotificationsGranted,
+                    screenshotAccessibilityEnabled = screenshotAccessibilityEnabled,
                     onBack = { finish() },
                     onRequestPermission = { permission ->
                         if (shouldShowRequestPermissionRationale(permission)) {
@@ -69,6 +71,12 @@ class PermissionsActivity : ComponentActivity() {
                     onOpenExactAlarmSettings = { PermissionManager.openExactAlarmSettings(this) },
                     onRequestBatteryOptimization = {
                         PermissionManager.requestBatteryOptimizationExemption(this)
+                    },
+                    onOpenOppoBackgroundSettings = {
+                        PermissionManager.openOppoBackgroundSettings(this)
+                    },
+                    onOpenScreenshotAccessibilitySettings = {
+                        showAccessibilityDisclosure()
                     },
                     onOpenPromotedNotificationsSettings = {
                         PermissionManager.openPromotedNotificationsSettings(this)
@@ -96,6 +104,23 @@ class PermissionsActivity : ComponentActivity() {
         exactAlarmGranted = PermissionManager.canScheduleExactAlarms(this)
         batteryOptimizationExempt = PermissionManager.isBatteryOptimizationExempt(this)
         promotedNotificationsGranted = PermissionManager.canPostPromotedNotifications(this)
+        screenshotAccessibilityEnabled =
+            PermissionManager.isScreenshotAccessibilityEnabled(this)
+    }
+
+    private fun showAccessibilityDisclosure() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("开启截图实时检测")
+            .setMessage(
+                "ColorOS 会冻结后台截图监听。开启后，SnapClear 监听系统窗口的出现与消失，" +
+                    "在截图浮层出现时唤醒应用并立即发送流体云；不会读取窗口内容、屏幕文字、" +
+                    "输入内容或操作其他应用。"
+            )
+            .setPositiveButton("前往开启") { _, _ ->
+                PermissionManager.openScreenshotAccessibilitySettings(this)
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun showPermissionRationale(permission: String) {

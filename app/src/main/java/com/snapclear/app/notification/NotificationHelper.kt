@@ -16,7 +16,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import android.os.SystemClock
 import android.util.Log
 import android.util.Size
 import android.widget.Toast
@@ -159,8 +158,9 @@ object NotificationHelper {
             postScreenshotNotification(context, imageUri, notificationId, isForeground)
 
             if (!isForeground) {
-                // ColorOS 偶尔会压住后台进程直发的流体云；在 WakeLock 保持期间
-                // 用相同 ID 安排一次系统 Receiver 补投，不会产生重复提醒。
+                // 无障碍系统绑定已经唤醒并托管进程；在 WakeLock 保持期间直接用
+                // 同一 ID 做两次短延迟更新，促使 ColorOS 立即展示流体云。
+                // 不再依赖会被 OEM 延迟约 5 秒甚至更久的 AlarmManager。
                 scheduleBackgroundRepost(context, notificationId, imageUri)
             }
         } finally {
@@ -276,12 +276,15 @@ object NotificationHelper {
         imageUri: Uri,
         notificationId: Int
     ): Triple<PendingIntent, PendingIntent, PendingIntent> {
-        val copyDeleteIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+        // 使用透明中转 Activity 获得前台执行能力，但不打开应用主页。
+        // 后续的 MediaStore trash request 会直接显示系统确认页。
+        val copyDeleteIntent = Intent(context, NotificationActionActivity::class.java).apply {
             action = ACTION_COPY_DELETE
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
             putExtra(EXTRA_IMAGE_URI, imageUri.toString())
             putExtra(EXTRA_NOTIFICATION_ID, notificationId)
         }
-        val copyDeletePendingIntent = PendingIntent.getBroadcast(
+        val copyDeletePendingIntent = PendingIntent.getActivity(
             context, notificationId, copyDeleteIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -381,34 +384,26 @@ object NotificationHelper {
             .build()
     }
 
-    /**
-     * 后台即时补投递。截图意味着设备屏幕处于活跃状态，不需要穿透 Doze；使用
-     * 普通 setExact 可避免 setExactAndAllowWhileIdle 的按应用限频，也不会出现
-     * AlarmClock 的调度延迟和状态栏闹钟标识。
-     */
+    /** 在无障碍系统绑定提供的运行窗口内直接更新，避开 ColorOS 闹钟调度延迟。 */
     private fun scheduleBackgroundRepost(
         context: Context,
         notificationId: Int,
         imageUri: Uri
     ): Boolean = try {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, LiveUpdateTickReceiver::class.java).apply {
-            action = ACTION_LIVE_UPDATE_POST
-            addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
-            putExtra(EXTRA_LIVE_UPDATE_ID, notificationId)
-            putExtra(EXTRA_LIVE_UPDATE_URI, imageUri.toString())
+        val appContext = context.applicationContext
+        val handler = Handler(Looper.getMainLooper())
+        longArrayOf(100L, 400L).forEach { delayMs ->
+            handler.postDelayed({
+                // 用户可能在重投前已经处理或划掉通知；状态不存在时不要复活它。
+                if (loadLiveUpdateState(appContext, notificationId) != null) {
+                    Log.d(
+                        "SnapClear Notify",
+                        "In-process background repost: id=$notificationId, delay=${delayMs}ms"
+                    )
+                    postScreenshotNotification(appContext, imageUri, notificationId)
+                }
+            }, delayMs)
         }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            notificationId + POST_REQUEST_CODE_OFFSET,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        alarmManager.setExact(
-            AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            SystemClock.elapsedRealtime() + 1L,
-            pendingIntent
-        )
         true
     } catch (e: Exception) {
         // 直发已经完成，补投失败不影响前台或 AOSP 路径。
