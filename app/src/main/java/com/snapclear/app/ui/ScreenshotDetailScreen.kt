@@ -2,7 +2,7 @@ package com.snapclear.app.ui
 
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.Size
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.snapclear.app.R
 import com.snapclear.app.screenshot.ScreenshotItem
+import com.snapclear.app.ui.image.ScreenshotImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -71,7 +72,11 @@ fun ScreenshotDetailScreen(
     onIgnore: () -> Unit
 ) {
     val context = LocalContext.current
-    val fullBitmap by rememberFullImage(item?.uri)
+    val configuration = LocalConfiguration.current
+    val density = context.resources.displayMetrics.density
+    val previewWidthPx = (configuration.screenWidthDp * density).toInt()
+    val previewHeightPx = (configuration.screenHeightDp * density).toInt()
+    val fullBitmap by rememberFullImage(item?.uri, previewWidthPx, previewHeightPx)
 
     Column(
         modifier = Modifier
@@ -277,18 +282,21 @@ private fun InfoRow(
  * 异步加载完整图片（非缩略图）
  */
 @Composable
-private fun rememberFullImage(uri: Uri?): State<Bitmap?> {
+private fun rememberFullImage(
+    uri: Uri?,
+    targetWidthPx: Int,
+    targetHeightPx: Int
+): State<Bitmap?> {
     val context = LocalContext.current
-    return produceState<Bitmap?>(initialValue = null, uri) {
+    return produceState<Bitmap?>(initialValue = null, uri, targetWidthPx, targetHeightPx) {
         if (uri == null) return@produceState
         value = withContext(Dispatchers.IO) {
-            try {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    android.graphics.BitmapFactory.decodeStream(input)
-                }
-            } catch (e: Exception) {
-                null
-            }
+            ScreenshotImageLoader.loadPreview(
+                resolver = context.contentResolver,
+                uri = uri,
+                targetWidthPx = targetWidthPx,
+                targetHeightPx = targetHeightPx
+            )
         }
     }
 }

@@ -14,9 +14,11 @@ import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import android.util.LruCache
 import android.util.Size
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
@@ -67,6 +69,21 @@ object NotificationHelper {
     private const val KEY_PREFIX_START = "lu_start_"
 
     private val nextScreenshotNotificationId = AtomicInteger(100)
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** 后台补投可能包含 MediaStore 缩略图 I/O，不能占用主线程。 */
+    private val repostHandler: Handler by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        Handler(HandlerThread("NotificationRepost").apply { start() }.looper)
+    }
+
+    /**
+     * 同一通知首次发送和两次 ColorOS 补投复用缩略图，避免重复解码三次。
+     * 按字节限制而不是条目数限制，防止多通知并存时占用过多内存。
+     */
+    private val thumbnailCache = object : LruCache<String, Bitmap>(4 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
+    }
 
     /** 当前活跃的截图通知 ID 集合 —— 支持多通知并存，各自独立倒计时 */
     private val activeScreenshotIds = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
@@ -191,7 +208,7 @@ object NotificationHelper {
 
     private fun releaseNotificationWakeLockLater(wakeLock: PowerManager.WakeLock?) {
         if (wakeLock == null) return
-        Handler(Looper.getMainLooper()).postDelayed({
+        mainHandler.postDelayed({
             try {
                 if (wakeLock.isHeld) wakeLock.release()
             } catch (e: Exception) {
@@ -391,9 +408,8 @@ object NotificationHelper {
         imageUri: Uri
     ): Boolean = try {
         val appContext = context.applicationContext
-        val handler = Handler(Looper.getMainLooper())
         longArrayOf(100L, 400L).forEach { delayMs ->
-            handler.postDelayed({
+            repostHandler.postDelayed({
                 // 用户可能在重投前已经处理或划掉通知；状态不存在时不要复活它。
                 if (loadLiveUpdateState(appContext, notificationId) != null) {
                     Log.d(
@@ -415,8 +431,16 @@ object NotificationHelper {
      * 读取截图缩略图（展开态左上角展示）
      */
     private fun loadThumbnail(context: Context, imageUri: Uri): Bitmap? {
+        val cacheKey = imageUri.toString()
+        synchronized(thumbnailCache) {
+            thumbnailCache.get(cacheKey)?.let { return it }
+        }
         return try {
-            context.contentResolver.loadThumbnail(imageUri, Size(360, 360), null)
+            context.contentResolver.loadThumbnail(imageUri, Size(360, 360), null).also { bitmap ->
+                synchronized(thumbnailCache) {
+                    thumbnailCache.put(cacheKey, bitmap)
+                }
+            }
         } catch (e: Exception) {
             Log.w("SnapClear Notify", "loadThumbnail failed for $imageUri", e)
             null

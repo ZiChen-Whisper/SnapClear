@@ -1,9 +1,9 @@
 package com.snapclear.app.diagnostic
 
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.ArrayDeque
-import java.util.Date
-import java.util.Locale
 
 /**
  * 诊断日志缓冲区
@@ -17,7 +17,8 @@ import java.util.Locale
 object DiagnosticLogger {
 
     private const val MAX_EVENTS = 100
-    private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
+    private val dateFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+        .withZone(ZoneId.systemDefault())
 
     private val events: ArrayDeque<DiagnosticEvent> = ArrayDeque(MAX_EVENTS)
 
@@ -31,7 +32,7 @@ object DiagnosticLogger {
     fun log(type: DiagnosticEventType, message: String) {
         val event = DiagnosticEvent(
             timestamp = System.currentTimeMillis(),
-            timeStr = dateFormat.format(Date()),
+            timeStr = dateFormat.format(Instant.now()),
             type = type,
             message = message
         )

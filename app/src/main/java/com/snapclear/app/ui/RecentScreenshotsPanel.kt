@@ -1,11 +1,9 @@
 package com.snapclear.app.ui
 
 import android.graphics.Bitmap
-import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
-import android.util.Size
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -20,23 +18,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.material.card.MaterialCardView
 import com.snapclear.app.R
 import com.snapclear.app.screenshot.ScreenshotItem
+import com.snapclear.app.ui.image.ScreenshotImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -59,7 +52,7 @@ fun ScreenshotCard(
     item: ScreenshotItem,
     onCopyDelete: () -> Unit,
     onDelete: () -> Unit,
-    onClick: (uri: Uri, view: View, bounds: Rect) -> Unit
+    onClick: (uri: Uri, view: View) -> Unit
 ) {
     val density = LocalDensity.current
     val thumbState by rememberThumbnail(item.uri, 300)
@@ -70,10 +63,6 @@ fun ScreenshotCard(
     val latestOnClick by rememberUpdatedState(onClick)
     val latestOnCopyDelete by rememberUpdatedState(onCopyDelete)
     val latestOnDelete by rememberUpdatedState(onDelete)
-
-    // 截图卡片 View 和位置（用于 OPPO 无缝动画）
-    var cardBounds by remember { mutableStateOf<Rect?>(null) }
-    var cardView by remember { mutableStateOf<MaterialCardView?>(null) }
 
     // 主题颜色
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -103,19 +92,10 @@ fun ScreenshotCard(
     val timeTextSize = with(density) { 10.dp.toPx() / density.density }
     val btnTextSize = with(density) { 10.dp.toPx() / density.density }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .onGloballyPositioned { coords ->
-                val pos = coords.positionInRoot()
-                val w = coords.size.width
-                val h = coords.size.height
-                cardBounds = Rect(pos.x.toInt(), pos.y.toInt(), (pos.x + w).toInt(), (pos.y + h).toInt())
-            }
-    ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
         AndroidView(
             factory = { ctx ->
-                MaterialCardView(ctx).apply {
+                MaterialCardView(ctx).apply card@{
                     setRadius(cornerRadiusPx)
                     setCardBackgroundColor(android.content.res.ColorStateList.valueOf(surfaceArgb))
                     cardElevation = 0f
@@ -149,11 +129,7 @@ fun ScreenshotCard(
                         isClickable = true
                         setOnClickListener {
                             // 通过 OPPO 无缝动画打开详情页
-                            cardView?.let { view ->
-                                cardBounds?.let { bounds ->
-                                    latestOnClick(latestItem.uri, view, bounds)
-                                }
-                            }
+                            latestOnClick(latestItem.uri, this@card)
                         }
                     }
 
@@ -269,7 +245,7 @@ fun ScreenshotCard(
 
                     contentLayout.addView(btnRow)
                     addView(contentLayout)
-                }.also { cardView = it }
+                }
             },
             update = { view ->
                 // 更新缩略图
@@ -289,6 +265,18 @@ fun ScreenshotCard(
                 // 更新文件名
                 val nameView = contentLayout?.getChildAt(2) as? TextView
                 nameView?.text = item.displayName
+
+                // LazyColumn 复用原生卡片时同步更新时间，避免显示上一条目的值。
+                val timeView = contentLayout?.getChildAt(3) as? TextView
+                timeView?.text = formatTime(item.dateTaken)
+            },
+            // 提供非空 onReset 后，Compose 才会在 LazyGrid 中复用 AndroidView，
+            // 避免滚出屏幕后再次进入时重建完整的 MaterialCardView 子树。
+            onReset = { view ->
+                val contentLayout = view.getChildAt(0) as? LinearLayout
+                val thumbLayout = contentLayout?.getChildAt(0) as? FrameLayout
+                val thumbView = thumbLayout?.getChildAt(0) as? ImageView
+                thumbView?.setImageDrawable(null)
             },
             modifier = Modifier.fillMaxWidth()
         )
@@ -301,25 +289,13 @@ fun ScreenshotCard(
 @Composable
 private fun rememberThumbnail(uri: Uri, sizePx: Int): State<Bitmap?> {
     val context = LocalContext.current
-    return produceState<Bitmap?>(initialValue = null, uri, sizePx) {
-        // 条目切换时先清空旧图，避免 LazyColumn 复用卡片时短暂显示上一张的缩略图
+    val cached = ScreenshotImageLoader.peekThumbnail(uri, sizePx)
+    return produceState<Bitmap?>(initialValue = cached, uri, sizePx) {
+        if (cached != null) return@produceState
+        // 条目切换时先清空旧图，避免 LazyGrid 复用卡片时短暂显示上一张的缩略图
         value = null
         value = withContext(Dispatchers.IO) {
-            try {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    context.contentResolver.loadThumbnail(uri, Size(sizePx, sizePx), null)
-                } else {
-                    @Suppress("DEPRECATION")
-                    android.provider.MediaStore.Images.Thumbnails.getThumbnail(
-                        context.contentResolver,
-                        android.content.ContentUris.parseId(uri),
-                        android.provider.MediaStore.Images.Thumbnails.MINI_KIND,
-                        null
-                    )
-                }
-            } catch (e: Exception) {
-                null
-            }
+            ScreenshotImageLoader.loadThumbnail(context.contentResolver, uri, sizePx)
         }
     }
 }

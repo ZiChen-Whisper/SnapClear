@@ -34,9 +34,9 @@ object ScreenshotEvents {
      */
     fun notifyScreenshotDetected() {
         mainHandler.post {
-            synchronized(this) {
-                listeners.forEach { it.invoke() }
-            }
+            val snapshot = synchronized(this) { listeners.toList() }
+            // 回调不持有事件总线锁，避免监听器间接注册/注销时阻塞或死锁。
+            snapshot.forEach { it.invoke() }
         }
     }
 

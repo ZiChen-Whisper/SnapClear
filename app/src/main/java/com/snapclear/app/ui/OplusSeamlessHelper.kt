@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import java.lang.reflect.Method
 
 /**
  * OPPO View 无缝过渡动画接入助手
@@ -26,6 +27,41 @@ object OplusSeamlessHelper {
     private const val CLASS_NAME = "com.oplus.animation.OplusViewSeamless"
     private const val CALLBACK_NAME = "com.oplus.animation.OplusViewSeamless\$AnimationCallback"
 
+    /** 反射元数据只解析一次，避免每次点击入口卡片都重复查类、字段和方法。 */
+    private val api: SeamlessApi? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        runCatching {
+            val clazz = Class.forName(CLASS_NAME)
+            val callbackClass = Class.forName(CALLBACK_NAME)
+            SeamlessApi(
+                openKey = clazz.getField("VIEW_SEAMLESS_OPEN").get(null) as String,
+                radiusKey = clazz.getField("BUNDLE_RADIUS").get(null) as String,
+                colorKey = clazz.getField("BUNDLE_COLOR").get(null) as String,
+                version = runCatching { clazz.getMethod("getVersion").invoke(null) as Int }
+                    .getOrDefault(-1),
+                base16 = runCatching { clazz.getField("OS_16_0_BASE").get(null) as Int }
+                    .getOrDefault(0),
+                setSeamlessView = clazz.getMethod(
+                    "setSeamlessView",
+                    View::class.java,
+                    Context::class.java,
+                    Bundle::class.java,
+                    callbackClass
+                )
+            )
+        }.onFailure { error ->
+            Log.d(TAG, "seamless API unavailable: ${error.javaClass.simpleName}: ${error.message}")
+        }.getOrNull()
+    }
+
+    private data class SeamlessApi(
+        val openKey: String,
+        val radiusKey: String,
+        val colorKey: String,
+        val version: Int,
+        val base16: Int,
+        val setSeamlessView: Method
+    )
+
     /**
      * 准备一次无缝过渡动画。
      *
@@ -42,44 +78,22 @@ object OplusSeamlessHelper {
         colorInt: Int
     ): Bundle? {
         return try {
-            val clazz = Class.forName(CLASS_NAME)
-            val callbackClass = Class.forName(CALLBACK_NAME)
-
-            // 读取常量字段名
-            val openKey = clazz.getField("VIEW_SEAMLESS_OPEN").get(null) as String
-            val radiusKey = clazz.getField("BUNDLE_RADIUS").get(null) as String
-            val colorKey = clazz.getField("BUNDLE_COLOR").get(null) as String
+            val seamlessApi = api ?: return null
 
             val bundle = Bundle()
-            bundle.putBoolean(openKey, true)
-            bundle.putFloat(radiusKey, cornerRadiusPx)
-            bundle.putInt(colorKey, colorInt)
+            bundle.putBoolean(seamlessApi.openKey, true)
+            bundle.putFloat(seamlessApi.radiusKey, cornerRadiusPx)
+            bundle.putInt(seamlessApi.colorKey, colorInt)
 
-            // 版本号校验：仅 ColorOS 16.0/16.1 以上支持
-            var version = -1
-            var base16 = 0
-            try {
-                version = clazz.getMethod("getVersion").invoke(null) as Int
-                base16 = clazz.getField("OS_16_0_BASE").get(null) as Int
-            } catch (_: Throwable) {
-                // 字段缺失时忽略，仅以 setSeamlessView 返回值为准
-            }
+            val result = seamlessApi.setSeamlessView
+                .invoke(null, view, activity, bundle, null) as Boolean
 
-            val setSeamless = clazz.getMethod(
-                "setSeamlessView",
-                View::class.java,
-                Context::class.java,
-                Bundle::class.java,
-                callbackClass
-            )
-            val result = setSeamless.invoke(null, view, activity, bundle, null) as Boolean
-
-            val versionOk = version <= 0 || version > base16
+            val versionOk = seamlessApi.version <= 0 || seamlessApi.version > seamlessApi.base16
             if (result && versionOk) {
-                Log.d(TAG, "seamless prepared, version=$version")
+                Log.d(TAG, "seamless prepared, version=${seamlessApi.version}")
                 bundle
             } else {
-                Log.d(TAG, "seamless not supported (result=$result, version=$version)")
+                Log.d(TAG, "seamless not supported (result=$result, version=${seamlessApi.version})")
                 null
             }
         } catch (e: Throwable) {

@@ -7,7 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,8 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,8 +55,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,11 +76,16 @@ fun MainScreen(
     allPermissionsGranted: Boolean,
     permissionGrantedCount: Int,
     permissionTotalCount: Int,
-    screenshots: List<ScreenshotItem>,
+    homeScreenshots: List<ScreenshotItem>,
+    recentPageScreenshots: List<ScreenshotItem>,
+    currentScreenshotPage: Int,
+    recentPageHasNext: Boolean,
+    isLoadingScreenshotPage: Boolean,
+    onScreenshotPageSelected: (Int) -> Unit,
     onToggleMonitoring: () -> Unit,
     onCopyDeleteScreenshot: (Uri) -> Unit,
     onDeleteScreenshot: (Uri) -> Unit,
-    onScreenshotClick: (Uri, android.view.View, android.graphics.Rect) -> Unit,
+    onScreenshotClick: (Uri, android.view.View) -> Unit,
     permissionsIntent: Intent,
     diagnosticsIntent: Intent,
     modifier: Modifier = Modifier
@@ -105,13 +109,23 @@ fun MainScreen(
                     0 -> HomeTabContent(
                         isMonitoring = isMonitoring,
                         allGranted = allPermissionsGranted,
-                        screenshots = screenshots,
+                        screenshots = homeScreenshots,
                         onToggle = onToggleMonitoring,
                         onCopyDelete = onCopyDeleteScreenshot,
                         onDelete = onDeleteScreenshot,
                         onScreenshotClick = onScreenshotClick
                     )
-                    1 -> ManageTabContent(
+                    1 -> RecentScreenshotsTabContent(
+                        screenshots = recentPageScreenshots,
+                        currentPage = currentScreenshotPage,
+                        hasNext = recentPageHasNext,
+                        isLoading = isLoadingScreenshotPage,
+                        onPageSelected = onScreenshotPageSelected,
+                        onCopyDelete = onCopyDeleteScreenshot,
+                        onDelete = onDeleteScreenshot,
+                        onScreenshotClick = onScreenshotClick
+                    )
+                    2 -> ManageTabContent(
                         allPermissionsGranted = allPermissionsGranted,
                         permissionGrantedCount = permissionGrantedCount,
                         permissionTotalCount = permissionTotalCount,
@@ -122,7 +136,7 @@ fun MainScreen(
             }
 
             FloatingCapsuleBottomBar(
-                tabs = listOf(HomeTab, ManageTab),
+                tabs = remember { listOf(HomeTab, RecentTab, ManageTab) },
                 selectedIndex = selectedTab,
                 onTabSelected = { selectedTab = it },
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -134,7 +148,7 @@ fun MainScreen(
 /**
  * 主页 Tab：监听卡片 + 最近截图网格
  *
- * 使用 LazyColumn 承载，截图按 2 列分组 chunked(2) 渲染，
+ * 使用 LazyVerticalGrid 直接承载两列截图，减少 Row 包装与整行重组，
  * 顶部状态栏 inset + 底部胶囊导航留白。
  */
 @Composable
@@ -145,9 +159,11 @@ private fun HomeTabContent(
     onToggle: () -> Unit,
     onCopyDelete: (Uri) -> Unit,
     onDelete: (Uri) -> Unit,
-    onScreenshotClick: (Uri, android.view.View, android.graphics.Rect) -> Unit
+    onScreenshotClick: (Uri, android.view.View) -> Unit
 ) {
-    LazyColumn(
+    val homeScreenshotCount = minOf(10, screenshots.size)
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.statusBars),
@@ -157,17 +173,29 @@ private fun HomeTabContent(
             top = 8.dp,
             bottom = 120.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { AppHeader(isMonitoring = isMonitoring) }
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            PageHeader(
+                title = "主页",
+                subtitle = "SnapClear · 截图一键清理",
+                trailing = {
+                    StatusBadge(
+                        text = if (isMonitoring) "监听中" else "已停止",
+                        color = if (isMonitoring) StatusGranted else MaterialTheme.colorScheme.outline
+                    )
+                }
+            )
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
             MonitoringCard(
                 isMonitoring = isMonitoring,
                 allGranted = allGranted,
                 onToggle = onToggle
             )
         }
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -180,43 +208,110 @@ private fun HomeTabContent(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "${screenshots.size} 张 · 近 30 天",
+                    text = if (screenshots.size > 10) "最近 10 张" else "$homeScreenshotCount 张",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-        if (screenshots.isEmpty()) {
-            item { EmptyScreenshotsState() }
+        if (homeScreenshotCount == 0) {
+            item(span = { GridItemSpan(maxLineSpan) }) { EmptyScreenshotsState() }
         } else {
-            // 2 列网格：按行 chunked。行 key 绑定行内截图的 URI：
-            // 截图增删后行内容变化即重建 Composable，避免复用导致缩略图与条目错位。
             items(
-                items = screenshots.chunked(2),
-                key = { row -> row.joinToString("|") { it.uri.toString() } }
-            ) { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    rowItems.forEach { item ->
-                        Box(modifier = Modifier.weight(1f)) {
-                            ScreenshotCard(
-                                item = item,
-                                onCopyDelete = { onCopyDelete(item.uri) },
-                                onDelete = { onDelete(item.uri) },
-                                onClick = { uri, view, bounds -> onScreenshotClick(uri, view, bounds) }
-                            )
-                        }
-                    }
-                    // 奇数个时，最后一行只 1 张，补一个占位
-                    if (rowItems.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
+                items = screenshots,
+                key = { it.id },
+                contentType = { "screenshot_card" }
+            ) { item ->
+                ScreenshotCard(
+                    item = item,
+                    onCopyDelete = { onCopyDelete(item.uri) },
+                    onDelete = { onDelete(item.uri) },
+                    onClick = { uri, view -> onScreenshotClick(uri, view) }
+                )
             }
         }
-        item { TipCard() }
+        item(span = { GridItemSpan(maxLineSpan) }) { TipCard() }
+    }
+}
+
+/** 最近截图 Tab：显式分页，内存与界面中只保留当前页。 */
+@Composable
+private fun RecentScreenshotsTabContent(
+    screenshots: List<ScreenshotItem>,
+    currentPage: Int,
+    hasNext: Boolean,
+    isLoading: Boolean,
+    onPageSelected: (Int) -> Unit,
+    onCopyDelete: (Uri) -> Unit,
+    onDelete: (Uri) -> Unit,
+    onScreenshotClick: (Uri, android.view.View) -> Unit
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 20.dp,
+            end = 20.dp,
+            top = 8.dp,
+            bottom = 120.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item(key = "recent_header", span = { GridItemSpan(maxLineSpan) }) {
+            PageHeader(
+                title = "最近截图",
+                subtitle = "第 ${currentPage + 1} 页 · 本页 ${screenshots.size} 张"
+            )
+        }
+
+        if (screenshots.isEmpty() && !isLoading) {
+            item(key = "recent_empty", span = { GridItemSpan(maxLineSpan) }) {
+                EmptyScreenshotsState()
+            }
+        } else {
+            items(
+                items = screenshots,
+                key = { it.id },
+                contentType = { "screenshot_card" }
+            ) { item ->
+                ScreenshotCard(
+                    item = item,
+                    onCopyDelete = { onCopyDelete(item.uri) },
+                    onDelete = { onDelete(item.uri) },
+                    onClick = { uri, view -> onScreenshotClick(uri, view) }
+                )
+            }
+        }
+
+        item(key = "recent_pager", span = { GridItemSpan(maxLineSpan) }) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = { onPageSelected(currentPage - 1) },
+                    enabled = currentPage > 0 && !isLoading,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("上一页") }
+                Text(
+                    text = "${currentPage + 1}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                OutlinedButton(
+                    onClick = { onPageSelected(currentPage + 1) },
+                    enabled = hasNext && !isLoading,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text(if (isLoading) "加载中" else "下一页") }
+            }
+        }
     }
 }
 
@@ -241,12 +336,7 @@ private fun ManageTabContent(
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = "管理",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        PageHeader(title = "管理", subtitle = "权限与诊断")
 
         SeamlessEntryCard(
             iconRes = R.drawable.ic_entry_shield,
@@ -276,48 +366,31 @@ private fun ManageTabContent(
 }
 
 @Composable
-private fun AppHeader(isMonitoring: Boolean) {
+private fun PageHeader(
+    title: String,
+    subtitle: String,
+    trailing: (@Composable () -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 4.dp),
+            .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(16.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            // 使用 seedream 生成的 3D 应用图标（相框+对勾 3D 质感）
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
-
-        Spacer(modifier = Modifier.width(14.dp))
-
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "SnapClear",
-                style = MaterialTheme.typography.titleLarge,
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "截图一键清理 · 安静后台守护",
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-
-        StatusBadge(
-            text = if (isMonitoring) "监听中" else "已停止",
-            color = if (isMonitoring) StatusGranted else MaterialTheme.colorScheme.outline
-        )
+        trailing?.invoke()
     }
 }
 

@@ -4,8 +4,10 @@ import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import androidx.compose.runtime.Immutable
 import com.snapclear.app.diagnostic.DiagnosticEventType
 import com.snapclear.app.diagnostic.DiagnosticLogger
 
@@ -28,6 +30,7 @@ object ScreenshotRepository {
         MediaStore.Images.Media.DISPLAY_NAME,
         MediaStore.Images.Media.RELATIVE_PATH,
         MediaStore.Images.Media.DATE_TAKEN,
+        MediaStore.Images.Media.DATE_ADDED,
         MediaStore.Images.Media.SIZE,
         MediaStore.Images.Media.WIDTH,
         MediaStore.Images.Media.HEIGHT
@@ -41,32 +44,63 @@ object ScreenshotRepository {
     )
 
     /**
-     * 查询最近 30 天的截图列表（按拍摄时间降序）
+     * 查询最近 30 天的截图列表（按 MediaStore 入库时间降序）
      */
-    fun queryRecent(context: Context): List<ScreenshotItem> {
+    fun queryRecent(context: Context): List<ScreenshotItem> =
+        queryRecentPage(context, limit = 20, offset = 0).items
+
+    /**
+     * 分页查询最近截图。筛选在 MediaStore 内完成，避免先读取一个月的全部图片再过滤。
+     */
+    fun queryRecentPage(context: Context, limit: Int, offset: Int): ScreenshotPage {
+        require(limit > 0) { "limit must be positive" }
+        require(offset >= 0) { "offset must not be negative" }
         val resolver = context.contentResolver
-        val cutoff = System.currentTimeMillis() - RECENT_WINDOW_MS
+        // DATE_ADDED 的单位是秒；DATE_TAKEN 来自图片元数据，在 ColorOS 上可能滞后或不可靠。
+        val cutoffSeconds = (System.currentTimeMillis() - RECENT_WINDOW_MS) / 1000L
         val results = mutableListOf<ScreenshotItem>()
 
-        val selection = buildString {
-            append("${MediaStore.Images.Media.DATE_TAKEN} >= ?")
-            append(" AND ${MediaStore.Images.Media.IS_TRASHED} = 0")
+        val screenshotClauses = buildList {
+            SCREENSHOT_PATH_PATTERNS.forEach {
+                add("${MediaStore.Images.Media.RELATIVE_PATH} LIKE ?")
+            }
+            SCREENSHOT_NAME_PATTERNS.forEach {
+                add("${MediaStore.Images.Media.DISPLAY_NAME} LIKE ?")
+            }
         }
-        val selectionArgs = arrayOf(cutoff.toString())
-        val sortOrder = "${MediaStore.Images.Media.DATE_TAKEN} DESC"
+        val selection = "${MediaStore.Images.Media.DATE_ADDED} >= ?" +
+            " AND ${MediaStore.Images.Media.IS_TRASHED} = 0" +
+            " AND (${screenshotClauses.joinToString(" OR ")})"
+        val selectionArgs = buildList {
+            add(cutoffSeconds.toString())
+            SCREENSHOT_PATH_PATTERNS.forEach { add("%${it.lowercase()}%") }
+            SCREENSHOT_NAME_PATTERNS.forEach { add("%${it.lowercase()}%") }
+        }.toTypedArray()
+        val queryArgs = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs)
+            // ColorOS 的 MediaProvider 对多列 QUERY_ARG_SORT_COLUMNS + SORT_DIRECTION
+            // 存在方向兼容差异，使用明确 SQL 排序保证最新截图始终排在最前。
+            putString(
+                ContentResolver.QUERY_ARG_SQL_SORT_ORDER,
+                "${MediaStore.Images.Media.DATE_ADDED} DESC, ${MediaStore.Images.Media._ID} DESC"
+            )
+            putInt(ContentResolver.QUERY_ARG_LIMIT, limit + 1)
+            putInt(ContentResolver.QUERY_ARG_OFFSET, offset)
+        }
 
         try {
             resolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 PROJECTION,
-                selection,
-                selectionArgs,
-                sortOrder
+                queryArgs,
+                null
             )?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
                 val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
                 val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.RELATIVE_PATH)
                 val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+                val dateAddedCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
                 val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
                 val widthCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH)
                 val heightCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT)
@@ -86,7 +120,10 @@ object ScreenshotRepository {
                             uri = uri,
                             displayName = name,
                             relativePath = path,
-                            dateTaken = cursor.getLong(dateCol),
+                            dateTaken = effectiveScreenshotTime(
+                                dateTakenMs = cursor.getLong(dateCol),
+                                dateAddedSeconds = cursor.getLong(dateAddedCol)
+                            ),
                             size = cursor.getLong(sizeCol),
                             width = cursor.getInt(widthCol),
                             height = cursor.getInt(heightCol)
@@ -99,8 +136,10 @@ object ScreenshotRepository {
             DiagnosticLogger.log(DiagnosticEventType.ERROR, "查询最近截图失败: ${e.message}")
         }
 
-        Log.d(TAG, "queryRecent: found ${results.size} screenshots in last 30 days")
-        return results
+        val hasMore = results.size > limit
+        if (hasMore) results.removeAt(results.lastIndex)
+        Log.d(TAG, "queryRecentPage: offset=$offset, found=${results.size}, hasMore=$hasMore")
+        return ScreenshotPage(results, hasMore)
     }
 
     /**
@@ -136,8 +175,13 @@ object ScreenshotRepository {
                         uri = uri,
                         displayName = name,
                         relativePath = path,
-                        dateTaken = cursor.getLong(
-                            cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+                        dateTaken = effectiveScreenshotTime(
+                            dateTakenMs = cursor.getLong(
+                                cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
+                            ),
+                            dateAddedSeconds = cursor.getLong(
+                                cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+                            )
                         ),
                         size = cursor.getLong(
                             cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
@@ -164,11 +208,21 @@ object ScreenshotRepository {
         if (SCREENSHOT_NAME_PATTERNS.any { lowerName.contains(it) }) return true
         return false
     }
+
+    /**
+     * 列表筛选以 DATE_ADDED 为准；展示时间优先使用同一字段，确保用户看到的日期
+     * 与“最近 30 天”的分页顺序一致。DATE_ADDED 缺失时才回退图片元数据时间。
+     */
+    internal fun effectiveScreenshotTime(dateTakenMs: Long, dateAddedSeconds: Long): Long {
+        val dateAddedMs = dateAddedSeconds * 1000L
+        return if (dateAddedMs > 0L) dateAddedMs else dateTakenMs
+    }
 }
 
 /**
  * 截图数据项
  */
+@Immutable
 data class ScreenshotItem(
     val id: Long,
     val uri: Uri,
@@ -178,4 +232,9 @@ data class ScreenshotItem(
     val size: Long,
     val width: Int,
     val height: Int
+)
+
+data class ScreenshotPage(
+    val items: List<ScreenshotItem>,
+    val hasMore: Boolean
 )

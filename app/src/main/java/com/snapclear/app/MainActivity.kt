@@ -23,6 +23,9 @@ import com.snapclear.app.screenshot.ScreenshotRepository
 import com.snapclear.app.ui.MainScreen
 import com.snapclear.app.ui.OplusSeamlessHelper
 import com.snapclear.app.ui.theme.SnapClearTheme
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 主 Activity（仪表盘）
@@ -36,11 +39,27 @@ import com.snapclear.app.ui.theme.SnapClearTheme
  */
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        private const val SCREENSHOT_PAGE_SIZE = 20
+    }
+
     private var isMonitoring by mutableStateOf(false)
     private var allPermissionsGranted by mutableStateOf(false)
     private var permissionGrantedCount by mutableStateOf(0)
     private var permissionTotalCount by mutableStateOf(0)
-    private var screenshots by mutableStateOf<List<com.snapclear.app.screenshot.ScreenshotItem>>(emptyList())
+    private var homeScreenshots by mutableStateOf<List<com.snapclear.app.screenshot.ScreenshotItem>>(emptyList())
+    private var recentPageScreenshots by mutableStateOf<List<com.snapclear.app.screenshot.ScreenshotItem>>(emptyList())
+    private var currentScreenshotPage by mutableStateOf(0)
+    private var recentPageHasNext by mutableStateOf(false)
+    private var isLoadingScreenshotPage by mutableStateOf(false)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val screenshotQueryExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "ScreenshotListQuery")
+    }
+    private val screenshotQueryRunning = AtomicBoolean(false)
+    private val screenshotRefreshRequested = AtomicBoolean(false)
+    private val activityDestroyed = AtomicBoolean(false)
+    private val screenshotQueryGeneration = AtomicInteger(0)
 
     /** 截图事件监听器：检测到新截图或列表变化时自动刷新 */
     private val screenshotEventListener: () -> Unit = {
@@ -81,7 +100,12 @@ class MainActivity : ComponentActivity() {
                     allPermissionsGranted = allPermissionsGranted,
                     permissionGrantedCount = permissionGrantedCount,
                     permissionTotalCount = permissionTotalCount,
-                    screenshots = screenshots,
+                    homeScreenshots = homeScreenshots,
+                    recentPageScreenshots = recentPageScreenshots,
+                    currentScreenshotPage = currentScreenshotPage,
+                    recentPageHasNext = recentPageHasNext,
+                    isLoadingScreenshotPage = isLoadingScreenshotPage,
+                    onScreenshotPageSelected = { page -> loadScreenshotPage(page) },
                     onToggleMonitoring = { toggleMonitoring() },
                     onCopyDeleteScreenshot = { uri ->
                         com.snapclear.app.clipboard.ClipboardHelper.copyAndDelete(this@MainActivity, uri)
@@ -92,7 +116,7 @@ class MainActivity : ComponentActivity() {
                             Toast.makeText(this@MainActivity, "删除失败，请手动删除", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    onScreenshotClick = { uri, view, bounds ->
+                    onScreenshotClick = { uri, view ->
                         // 点击截图卡片 → 通过 OPPO 无缝动画打开详情页
                         // 传入截图卡片本身的 View，让动画从卡片位置展开
                         val intent = ScreenshotDetailActivity.createIntent(this@MainActivity, uri)
@@ -193,11 +217,63 @@ class MainActivity : ComponentActivity() {
 
     /** 刷新最近截图列表（包含未运行期间产生的截图） */
     private fun refreshScreenshots() {
-        // 在后台线程查询 MediaStore，避免阻塞 UI
-        Thread {
-            val list = ScreenshotRepository.queryRecent(this)
-            screenshots = list
-        }.start()
+        if (activityDestroyed.get()) return
+        // 合并短时间内来自 onResume、截图事件和 MediaStore 的重复刷新，避免创建大量线程。
+        screenshotQueryGeneration.incrementAndGet()
+        screenshotRefreshRequested.set(true)
+        if (!screenshotQueryRunning.compareAndSet(false, true)) return
+
+        screenshotQueryExecutor.execute {
+            try {
+                do {
+                    screenshotRefreshRequested.set(false)
+                    val generation = screenshotQueryGeneration.get()
+                    val page = ScreenshotRepository.queryRecentPage(
+                        context = this,
+                        limit = SCREENSHOT_PAGE_SIZE,
+                        offset = 0
+                    )
+                    mainHandler.post {
+                        if (!isDestroyed && generation == screenshotQueryGeneration.get()) {
+                            homeScreenshots = page.items.take(10)
+                            recentPageScreenshots = page.items
+                            currentScreenshotPage = 0
+                            recentPageHasNext = page.hasMore
+                            isLoadingScreenshotPage = false
+                        }
+                    }
+                } while (screenshotRefreshRequested.get())
+            } finally {
+                screenshotQueryRunning.set(false)
+                // 请求可能恰好出现在循环结束与 running 复位之间，补一次调度避免丢刷新。
+                if (!activityDestroyed.get() && screenshotRefreshRequested.get()) refreshScreenshots()
+            }
+        }
+    }
+
+    /** 显式切换最近截图页；内存中只保留当前页，不累积此前页面。 */
+    private fun loadScreenshotPage(pageIndex: Int) {
+        if (activityDestroyed.get() || isLoadingScreenshotPage || pageIndex < 0) return
+        if (pageIndex > currentScreenshotPage && !recentPageHasNext) return
+        isLoadingScreenshotPage = true
+        val generation = screenshotQueryGeneration.get()
+        screenshotQueryExecutor.execute {
+            val page = ScreenshotRepository.queryRecentPage(
+                context = this,
+                limit = SCREENSHOT_PAGE_SIZE,
+                offset = pageIndex * SCREENSHOT_PAGE_SIZE
+            )
+            mainHandler.post {
+                if (!isDestroyed && generation == screenshotQueryGeneration.get()) {
+                    recentPageScreenshots = page.items
+                    currentScreenshotPage = pageIndex
+                    recentPageHasNext = page.hasMore
+                    isLoadingScreenshotPage = false
+                } else if (!isDestroyed) {
+                    isLoadingScreenshotPage = false
+                }
+            }
+        }
     }
 
     private fun toggleMonitoring() {
@@ -238,7 +314,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        activityDestroyed.set(true)
         super.onDestroy()
+        screenshotQueryExecutor.shutdownNow()
+        mainHandler.removeCallbacksAndMessages(null)
         // 前台服务在 Activity 销毁后继续运行
     }
 }
