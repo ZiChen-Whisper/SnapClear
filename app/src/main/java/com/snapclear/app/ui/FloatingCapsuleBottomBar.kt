@@ -1,141 +1,136 @@
 package com.snapclear.app.ui
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
+import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
-import androidx.annotation.DrawableRes
 import com.snapclear.app.R
+import dev.chrisbanes.haze.HazeState
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
-/**
- * 悬浮胶囊底部导航。
- *
- * - 底部居中悬浮，紧凑胶囊宽度（不占满全屏），距底部 20dp + 导航栏 inset
- * - 不透明白色背景与轻微阴影
- * - 纯图标表达，选中/未选中使用对应 SVG 矢量资源
- * - 滑块使用短促补间动画，不回弹
- */
 @Composable
-fun FloatingCapsuleBottomBar(
-    tabs: List<CapsuleTab>,
-    selectedIndex: Int,
-    onTabSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    require(tabs.size >= 2) { "CapsuleBar needs at least 2 tabs" }
+fun FloatingCapsuleBottomBar(tabs: List<CapsuleTab>, selectedIndex: Int, onTabSelected: (Int) -> Unit,
+    permissionWarning: Boolean, hazeState: HazeState, modifier: Modifier = Modifier) {
+    val width = 192.dp
+    val tabWidth = width / tabs.size
+    val tabWidthPx = with(LocalDensity.current) { tabWidth.toPx() }
+    var dragPosition by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
+    var dragScaleX by remember { mutableFloatStateOf(1f) }
+    var dragScaleY by remember { mutableFloatStateOf(1f) }
+    var isDragging by remember { mutableStateOf(false) }
 
-    // iOS 风格紧凑底栏：胶囊宽度固定，不占满全屏
-    val capsuleWidthDp = 192.dp
-    val tabWidthDp = capsuleWidthDp / tabs.size
-
-    val pillOffset by animateDpAsState(
-        targetValue = tabWidthDp * selectedIndex,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "pillOffset"
+    LaunchedEffect(selectedIndex) {
+        if (!isDragging) dragPosition = selectedIndex.toFloat()
+    }
+    val indicatorAnimation = if (isDragging) snap<Float>() else spring<Float>(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow)
+    val indicatorPosition by animateFloatAsState(dragPosition, indicatorAnimation, label = "tabPosition")
+    val indicatorScaleX by animateFloatAsState(
+        if (isDragging) dragScaleX else 1f,
+        indicatorAnimation,
+        label = "tabScaleX"
+    )
+    val indicatorScaleY by animateFloatAsState(
+        if (isDragging) dragScaleY else 1f,
+        indicatorAnimation,
+        label = "tabScaleY"
     )
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(bottom = 20.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        // 胶囊容器
-        Box(
-            modifier = Modifier
-                .width(capsuleWidthDp)
-                .height(56.dp)
-                .clip(RoundedCornerShape(50))
-                .shadow(
-                    elevation = 4.dp,
-                    shape = RoundedCornerShape(50),
-                    ambientColor = Color.Black.copy(alpha = 0.06f),
-                    spotColor = Color.Black.copy(alpha = 0.10f)
-                )
-                .background(Color.White)
+    Box(modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 20.dp), contentAlignment = Alignment.Center) {
+        GlassSurface(
+            hazeState = hazeState,
+            modifier = Modifier.width(width).height(56.dp),
+            shape = RoundedCornerShape(28.dp),
+            contentAlignment = Alignment.TopStart,
+            interactive = false,
+            clipContent = false
         ) {
-            // 滑动药丸（激活背景）
             Box(
-                modifier = Modifier
-                    .offset(x = pillOffset)
-                    .width(tabWidthDp)
-                    .height(56.dp)
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color(0xFF0D9488))
-            )
-
-            // Tab 内容行
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    val isSelected = index == selectedIndex
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { onTabSelected(index) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(
-                                if (isSelected) tab.selectedIconRes else tab.unselectedIconRes
-                            ),
-                            contentDescription = tab.label,
-                            tint = if (isSelected) Color.White else Color(0xFF667085),
-                            modifier = Modifier.size(22.dp)
-                        )
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(tabs.size, selectedIndex) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            var lastX = down.position.x
+                            var dragged = false
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                lastX = change.position.x
+                                if (abs(lastX - down.position.x) > viewConfiguration.touchSlop) dragged = true
+                                if (dragged && change.pressed) {
+                                    val rawPosition = lastX / tabWidthPx - 0.5f
+                                    val resisted = resistedSelectorPosition(rawPosition, tabs.lastIndex.toFloat())
+                                    val bridge = (abs(resisted - resisted.roundToInt()) * 2f).coerceAtMost(1f)
+                                    isDragging = true
+                                    dragPosition = resisted
+                                    dragScaleX = 1f + bridge * 0.18f
+                                    dragScaleY = 1f - bridge * 0.055f
+                                    change.consume()
+                                }
+                                if (!change.pressed) break
+                            }
+                            val target = (lastX / tabWidthPx).toInt().coerceIn(0, tabs.lastIndex)
+                            dragPosition = target.toFloat()
+                            isDragging = false
+                            if (dragged) onTabSelected(target)
+                        }
                     }
+            ) {
+                val visualIndex = indicatorPosition.roundToInt().coerceIn(0, tabs.lastIndex)
+                Box(
+                    Modifier
+                        .width(tabWidth)
+                        .fillMaxHeight()
+                        .zIndex(1f)
+                        .graphicsLayer {
+                            translationX = tabWidthPx * indicatorPosition
+                            scaleX = indicatorScaleX
+                            scaleY = indicatorScaleY
+                        }
+                        .padding(4.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painterResource(tabs[visualIndex].selectedIconRes),
+                        tabs[visualIndex].label,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
+                Row(Modifier.fillMaxSize()) { tabs.forEachIndexed { index, tab ->
+                    Box(Modifier.weight(1f).fillMaxHeight().clickable(remember { MutableInteractionSource() }, null) { onTabSelected(index) }, contentAlignment = Alignment.Center) {
+                        Icon(painterResource(tab.unselectedIconRes), tab.label,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                        if (permissionWarning && tab == PermissionTab && selectedIndex != index) Box(Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 13.dp).size(7.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error))
+                    }
+                } }
             }
         }
     }
 }
 
-data class CapsuleTab(
-    @param:DrawableRes val selectedIconRes: Int,
-    @param:DrawableRes val unselectedIconRes: Int,
-    val label: String
-)
-
-/** 主页 Tab */
+data class CapsuleTab(@param:DrawableRes val selectedIconRes: Int, @param:DrawableRes val unselectedIconRes: Int, val label: String)
 val HomeTab = CapsuleTab(R.drawable.ic_tab_home_solid, R.drawable.ic_tab_home_regular, "主页")
-
-/** 最近截图 Tab */
 val RecentTab = CapsuleTab(R.drawable.ic_tab_picture_solid, R.drawable.ic_tab_picture_regular, "最近截图")
-
-/** 管理 Tab */
-val ManageTab = CapsuleTab(R.drawable.ic_tab_settings_solid, R.drawable.ic_tab_settings_regular, "管理")
+val PermissionTab = CapsuleTab(R.drawable.ic_tab_permission_solid, R.drawable.ic_tab_permission_regular, "权限管理")

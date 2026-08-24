@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="800" viewBox="0 0 1260 800">
+  <defs>
+    <filter id="panelShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000000" flood-opacity="0.10"/>
+    </filter>
+    <filter id="iconShadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#000000" flood-opacity="0.17"/>
+    </filter>
+    <g id="baseLight">
+      <rect width="240" height="240" rx="58" fill="#F6F6F6" filter="url(#iconShadow)"/>
+      <g transform="rotate(-7 120 120)">
+        <rect x="55" y="46" width="142" height="142" rx="31" fill="#B8CDCD"/>
+      </g>
+      <rect x="47" y="52" width="146" height="146" rx="32" fill="#0B6565"/>
+      <path d="M79 52H161C178.7 52 193 66.3 193 84V91H47V84C47 66.3 61.3 52 79 52Z" fill="#FFFFFF" opacity="0.14"/>
+    </g>
+    <g id="baseDark">
+      <rect width="240" height="240" rx="58" fill="#111111" filter="url(#iconShadow)"/>
+      <g transform="rotate(-7 120 120)">
+        <rect x="55" y="46" width="142" height="142" rx="31" fill="#354545"/>
+      </g>
+      <rect x="47" y="52" width="146" height="146" rx="32" fill="#0B6565"/>
+      <path d="M79 52H161C178.7 52 193 66.3 193 84V91H47V84C47 66.3 61.3 52 79 52Z" fill="#FFFFFF" opacity="0.11"/>
+    </g>
+    <g id="glyphA">
+      <circle cx="116" cy="120" r="38" fill="none" stroke="#FFFFFF" stroke-width="8"
+              stroke-linecap="round" stroke-dasharray="42 17" transform="rotate(-12 116 120)"/>
+      <circle cx="116" cy="120" r="13" fill="#FFFFFF" opacity="0.96"/>
+      <circle cx="166" cy="166" r="24" fill="#F6F6F6"/>
+      <path d="M153 166L162 175L180 156" fill="none" stroke="#0B6565" stroke-width="7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="glyphB">
+      <circle cx="159" cy="95" r="10" fill="#FFFFFF"/>
+      <path d="M70 158C83 139 94 126 106 126C119 126 127 145 139 145C151 145 160 126 171 112"
+            fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+      <path d="M72 171H177" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity="0.42"/>
+    </g>
+    <g id="glyphC">
+      <rect x="75" y="86" width="92" height="74" rx="17" fill="none" stroke="#FFFFFF"
+            stroke-width="6" opacity="0.45"/>
+      <rect x="67" y="78" width="98" height="80" rx="18" fill="none" stroke="#FFFFFF"
+            stroke-width="7"/>
+      <circle cx="142" cy="101" r="8" fill="#FFFFFF"/>
+      <path d="M84 139L105 118L119 131" fill="none" stroke="#FFFFFF" stroke-width="7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="164" cy="162" r="24" fill="#F6F6F6"/>
+      <path d="M151 162L160 171L178 152" fill="none" stroke="#0B6565" stroke-width="7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </defs>
+
+  <rect width="1260" height="800" fill="#E9EEEE"/>
+  <text x="630" y="54" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif"
+        font-size="28" font-weight="700" fill="#172323">SnapClear 图标内部符号候选</text>
+  <text x="630" y="84" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif"
+        font-size="15" fill="#5D6868">外部叠层卡片保持一致，仅比较绿色卡片里的线性图案</text>
+
+  <g filter="url(#panelShadow)">
+    <rect x="30" y="110" width="380" height="650" rx="38" fill="#FFFFFF"/>
+    <rect x="440" y="110" width="380" height="650" rx="38" fill="#FFFFFF"/>
+    <rect x="850" y="110" width="380" height="650" rx="38" fill="#FFFFFF"/>
+  </g>
+
+  <text x="220" y="157" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="700" fill="#172323">A · 镜头清理</text>
+  <text x="630" y="157" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="700" fill="#172323">B · 流线清理（无勾）</text>
+  <text x="1040" y="157" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="22" font-weight="700" fill="#172323">C · 叠页清理</text>
+
+  <use href="#baseLight" x="100" y="180"/><use href="#glyphA" x="100" y="180"/>
+  <use href="#baseLight" x="510" y="180"/><use href="#glyphB" x="510" y="180"/>
+  <use href="#baseLight" x="920" y="180"/><use href="#glyphC" x="920" y="180"/>
+
+  <use href="#baseDark" x="100" y="465"/><use href="#glyphA" x="100" y="465"/>
+  <use href="#baseDark" x="510" y="465"/><use href="#glyphB" x="510" y="465"/>
+  <use href="#baseDark" x="920" y="465"/><use href="#glyphC" x="920" y="465"/>
+
+  <text x="73" y="208" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#748080">浅色</text>
+  <text x="483" y="208" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#748080">浅色</text>
+  <text x="893" y="208" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#748080">浅色</text>
+  <text x="73" y="493" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#748080">深色</text>
+  <text x="483" y="493" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#748080">深色</text>
+  <text x="893" y="493" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" font-weight="600" fill="#748080">深色</text>
+
+  <text x="220" y="733" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" fill="#657070">光圈结构，识别度最强</text>
+  <text x="630" y="733" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" fill="#657070">抽象连续线，最简洁</text>
+  <text x="1040" y="733" text-anchor="middle" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" fill="#657070">截图语义最直接</text>
+</svg>
+

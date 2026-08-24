@@ -13,16 +13,25 @@ import android.widget.Space
 import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.appcompat.widget.AppCompatImageView
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import com.snapclear.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -37,16 +46,200 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.material.card.MaterialCardView
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeChild
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlin.math.sign
+
+/**
+ * 全应用统一的玻璃材质：局部高斯模糊、主题感知的半透明黑/白底与轻阴影。
+ * HazeStyle 本身已经会绘制半透明 tint，不再叠加第二层纯色背景，
+ * 否则会把已经计算好的高斯模糊几乎完全遮住。
+ */
+@Composable
+fun GlassSurface(
+    hazeState: HazeState,
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(20.dp),
+    contentAlignment: Alignment = Alignment.TopStart,
+    interactive: Boolean = true,
+    clipContent: Boolean = true,
+    shadowElevation: Dp? = null,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+    val scaleX = remember { Animatable(1f) }
+    val scaleY = remember { Animatable(1f) }
+    val highlightAlpha = remember { Animatable(0f) }
+    var highlightPosition by remember { mutableStateOf(Offset.Zero) }
+    var transformOrigin by remember { mutableStateOf(TransformOrigin.Center) }
+    val tint = if (isLight) {
+        ComposeColor.White.copy(alpha = 0.76f)
+    } else {
+        ComposeColor.Black.copy(alpha = 0.64f)
+    }
+    val shadowColor = if (isLight) {
+        ComposeColor.Black.copy(alpha = 0.07f)
+    } else {
+        ComposeColor.Black.copy(alpha = 0.30f)
+    }
+    val gestureModifier = if (interactive) {
+        Modifier.pointerInput(Unit) {
+            coroutineScope {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val width = size.width.coerceAtLeast(1).toFloat()
+                    val height = size.height.coerceAtLeast(1).toFloat()
+                    highlightPosition = down.position
+                    transformOrigin = TransformOrigin.Center
+                    launch { highlightAlpha.animateTo(1f, tween(90)) }
+                    launch { scaleX.animateTo(0.985f, tween(80)) }
+                    launch { scaleY.animateTo(0.985f, tween(80)) }
+
+                    var pointerPressed = true
+                    while (pointerPressed) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        pointerPressed = change.pressed
+                        if (pointerPressed) {
+                            highlightPosition = change.position
+                            val delta = change.position - down.position
+                            val resistedX = rubberBandOffset(delta.x, width * 0.16f)
+                            val resistedY = rubberBandOffset(delta.y, height * 0.16f)
+                            val horizontalPull = abs(resistedX) / width
+                            val verticalPull = abs(resistedY) / height
+                            transformOrigin = TransformOrigin(
+                                pivotFractionX = when {
+                                    abs(resistedX) < 0.5f -> 0.5f
+                                    resistedX > 0f -> 0f
+                                    else -> 1f
+                                },
+                                pivotFractionY = when {
+                                    abs(resistedY) < 0.5f -> 0.5f
+                                    resistedY > 0f -> 0f
+                                    else -> 1f
+                                }
+                            )
+                            launch {
+                                scaleX.snapTo(0.985f + horizontalPull * 0.58f - verticalPull * 0.08f)
+                                scaleY.snapTo(0.985f + verticalPull * 0.58f - horizontalPull * 0.08f)
+                            }
+                        }
+                    }
+
+                    val rebound = spring<Float>(
+                        dampingRatio = 0.72f,
+                        stiffness = 420f
+                    )
+                    launch { scaleX.animateTo(1f, rebound) }
+                    launch { scaleY.animateTo(1f, rebound) }
+                    launch { highlightAlpha.animateTo(0f, tween(190)) }
+                }
+            }
+        }
+    } else {
+        Modifier
+    }
+    Box(
+        modifier = modifier
+            .then(gestureModifier)
+            .graphicsLayer {
+                this.scaleX = scaleX.value
+                this.scaleY = scaleY.value
+                this.transformOrigin = transformOrigin
+            }
+            .shadow(
+                elevation = shadowElevation ?: if (isLight) 1.dp else 2.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = shadowColor.copy(alpha = shadowColor.alpha * 0.72f),
+                spotColor = shadowColor
+            ),
+        contentAlignment = contentAlignment
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .layout { measurable, constraints ->
+                    val baseWidth = constraints.maxWidth
+                    val baseHeight = constraints.maxHeight
+                    val stretchedWidth = (baseWidth * scaleX.value).roundToInt().coerceAtLeast(1)
+                    val stretchedHeight = (baseHeight * scaleY.value).roundToInt().coerceAtLeast(1)
+                    val placeable = measurable.measure(
+                        androidx.compose.ui.unit.Constraints.fixed(stretchedWidth, stretchedHeight)
+                    )
+                    val x = ((baseWidth - stretchedWidth) * transformOrigin.pivotFractionX).roundToInt()
+                    val y = ((baseHeight - stretchedHeight) * transformOrigin.pivotFractionY).roundToInt()
+                    layout(baseWidth, baseHeight) {
+                        placeable.place(x, y)
+                    }
+                }
+                .hazeChild(
+                    state = hazeState,
+                    shape = shape,
+                    style = HazeStyle(tint = tint, blurRadius = 18.dp)
+                )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (clipContent) Modifier.clip(shape) else Modifier
+                ),
+            contentAlignment = contentAlignment,
+            content = content
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(shape)
+                .drawWithCache {
+                    val radius = max(size.width, size.height) * 0.9f
+                    val highlightStrength = if (isLight) 0.24f else 0.32f
+                    val highlight = Brush.radialGradient(
+                        colors = listOf(
+                            ComposeColor.White.copy(alpha = highlightStrength * highlightAlpha.value),
+                            ComposeColor.White.copy(alpha = highlightStrength * 0.32f * highlightAlpha.value),
+                            ComposeColor.Transparent
+                        ),
+                        center = highlightPosition,
+                        radius = radius
+                    )
+                    onDrawBehind {
+                        if (highlightAlpha.value > 0.001f) {
+                            drawCircle(highlight, radius = radius, center = highlightPosition)
+                        }
+                    }
+                }
+        )
+    }
+}
 
 /**
  * 状态胶囊：圆点 + 文本，用于卡片右上角的状态标识
@@ -328,29 +521,83 @@ fun SeamlessEntryCard(
     }
 }
 
+internal val GlassIconControlSize = 44.dp
+
+@Composable
+fun GlassIconButton(
+    hazeState: HazeState,
+    @DrawableRes iconRes: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    iconSize: Dp = 18.dp,
+    iconOffsetX: Dp = 0.dp
+) {
+    GlassSurface(
+        hazeState = hazeState,
+        modifier = modifier.size(GlassIconControlSize),
+        shape = CircleShape,
+        contentAlignment = Alignment.Center,
+        interactive = enabled
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = contentDescription,
+                tint = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.34f)
+                },
+                modifier = Modifier.size(iconSize).offset(x = iconOffsetX)
+            )
+        }
+    }
+}
+
 /**
  * 二级界面左上角圆形返回按钮（angle-left 图标）
  */
 @Composable
 fun CircularBackButton(
+    hazeState: HazeState,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable { onBack() },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_back),
-            contentDescription = "返回",
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(20.dp)
-        )
-    }
+    GlassIconButton(
+        hazeState = hazeState,
+        iconRes = R.drawable.ic_angle_left,
+        contentDescription = "返回",
+        onClick = onBack,
+        modifier = modifier,
+        iconSize = 16.dp,
+        iconOffsetX = (-1).dp
+    )
+}
+
+/** 连续阻尼函数：拖得越远阻力越大，但不会在阈值处突然停止。 */
+internal fun rubberBandOffset(distance: Float, limit: Float): Float {
+    if (distance == 0f || limit <= 0f) return 0f
+    val magnitude = abs(distance)
+    return sign(distance) * limit * magnitude / (magnitude + limit)
+}
+
+/** 分段滑块在两端之外继续保留渐进阻尼，避免硬裁切。 */
+internal fun resistedSelectorPosition(rawPosition: Float, maxIndex: Float): Float = when {
+    rawPosition < 0f -> -rubberBandOffset(-rawPosition, 0.42f)
+    rawPosition > maxIndex -> maxIndex + rubberBandOffset(rawPosition - maxIndex, 0.42f)
+    else -> rawPosition
 }
 
 /** 仅供 dp → px 转换的便捷扩展 */

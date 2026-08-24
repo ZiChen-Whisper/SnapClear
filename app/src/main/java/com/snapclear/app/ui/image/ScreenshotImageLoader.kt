@@ -23,12 +23,17 @@ object ScreenshotImageLoader {
     }
     private val thumbnailDecodeSlots = Semaphore(2, true)
 
-    fun peekThumbnail(uri: Uri, sizePx: Int): Bitmap? = synchronized(thumbnailCache) {
-        thumbnailCache.get("$uri@$sizePx")
+    fun peekThumbnail(uri: Uri, sizePx: Int, cacheToken: String = uri.toString()): Bitmap? = synchronized(thumbnailCache) {
+        thumbnailCache.get(cacheKey(uri, sizePx, cacheToken))
     }
 
-    fun loadThumbnail(resolver: ContentResolver, uri: Uri, sizePx: Int): Bitmap? {
-        val cacheKey = "$uri@$sizePx"
+    fun loadThumbnail(
+        resolver: ContentResolver,
+        uri: Uri,
+        sizePx: Int,
+        cacheToken: String = uri.toString()
+    ): Bitmap? {
+        val cacheKey = cacheKey(uri, sizePx, cacheToken)
         synchronized(thumbnailCache) {
             thumbnailCache.get(cacheKey)?.let { return it }
         }
@@ -56,6 +61,9 @@ object ScreenshotImageLoader {
             }
         }
     }
+
+    private fun cacheKey(uri: Uri, sizePx: Int, cacheToken: String): String =
+        "$uri@$sizePx#$cacheToken"
 
     /**
      * 按显示尺寸解码详情图，避免把常见的数千万像素截图完整展开到内存。

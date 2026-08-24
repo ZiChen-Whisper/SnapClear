@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="brand_primary">#FF0D9488</color>
-    <color name="brand_primary_dark">#FF5EEAD4</color>
-    <color name="brand_secondary">#FF115E59</color>
-    <color name="brand_secondary_dark">#FF2DD4BF</color>
-    <color name="brand_bg">#FFF6FAF9</color>
+    <color name="brand_primary">#FF0B6565</color>
+    <color name="brand_primary_dark">#FF0B6565</color>
+    <color name="brand_secondary">#FF0B6565</color>
+    <color name="brand_secondary_dark">#FF0B6565</color>
+    <color name="brand_bg">#FFF6F6F6</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

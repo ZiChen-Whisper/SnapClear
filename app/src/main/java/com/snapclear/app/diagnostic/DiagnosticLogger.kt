@@ -8,7 +8,7 @@ import java.util.ArrayDeque
 /**
  * 诊断日志缓冲区
  *
- * 在内存中保存最近的事件，供诊断面板实时显示。
+ * 在内存中保存最近的事件，并同步输出到 logcat。
  * 线程安全，可在任意线程写入。
  *
  * 日志同时输出到 Logcat（tag = "SnapClear Diag"），

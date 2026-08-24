@@ -1,6 +1,7 @@
 package com.snapclear.app
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
@@ -12,9 +13,14 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.toArgb
 import com.snapclear.app.notification.NotificationHelper
 import com.snapclear.app.permission.PermissionManager
 import com.snapclear.app.screenshot.ScreenshotEvents
@@ -22,6 +28,9 @@ import com.snapclear.app.screenshot.ScreenshotMonitorService
 import com.snapclear.app.screenshot.ScreenshotRepository
 import com.snapclear.app.ui.MainScreen
 import com.snapclear.app.ui.OplusSeamlessHelper
+import com.snapclear.app.ui.ScreenshotViewMode
+import com.snapclear.app.ui.arePermissionsComplete
+import com.snapclear.app.ui.parseScreenshotViewMode
 import com.snapclear.app.ui.theme.SnapClearTheme
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -41,12 +50,20 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val SCREENSHOT_PAGE_SIZE = 20
+        private const val PREFS_NAME = "snapclear_prefs"
+        private const val PREF_VIEW_MODE = "screenshot_view_mode"
+        private const val PREF_FORCE_LIGHT_MODE = "force_light_mode"
     }
 
     private var isMonitoring by mutableStateOf(false)
     private var allPermissionsGranted by mutableStateOf(false)
-    private var permissionGrantedCount by mutableStateOf(0)
-    private var permissionTotalCount by mutableStateOf(0)
+    private val permissionStates = mutableStateMapOf<String, Boolean>()
+    private var exactAlarmGranted by mutableStateOf(false)
+    private var batteryOptimizationExempt by mutableStateOf(false)
+    private var promotedNotificationsGranted by mutableStateOf(false)
+    private var screenshotAccessibilityEnabled by mutableStateOf(false)
+    private var forceLightMode by mutableStateOf(false)
+    private var screenshotViewMode by mutableStateOf(ScreenshotViewMode.CARD)
     private var homeScreenshots by mutableStateOf<List<com.snapclear.app.screenshot.ScreenshotItem>>(emptyList())
     private var recentPageScreenshots by mutableStateOf<List<com.snapclear.app.screenshot.ScreenshotItem>>(emptyList())
     private var currentScreenshotPage by mutableStateOf(0)
@@ -60,6 +77,11 @@ class MainActivity : ComponentActivity() {
     private val screenshotRefreshRequested = AtomicBoolean(false)
     private val activityDestroyed = AtomicBoolean(false)
     private val screenshotQueryGeneration = AtomicInteger(0)
+    private val requestedScreenshotPage = AtomicInteger(0)
+    private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        results.forEach { (permission, granted) -> permissionStates[permission] = granted }
+        refreshPermissionSummary()
+    }
 
     /** 截图事件监听器：检测到新截图或列表变化时自动刷新 */
     private val screenshotEventListener: () -> Unit = {
@@ -87,6 +109,9 @@ class MainActivity : ComponentActivity() {
         }
 
         NotificationHelper.createChannels(this)
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        forceLightMode = prefs.getBoolean(PREF_FORCE_LIGHT_MODE, false)
+        screenshotViewMode = parseScreenshotViewMode(prefs.getString(PREF_VIEW_MODE, ScreenshotViewMode.CARD.name))
         isMonitoring = ScreenshotMonitorService.isRunning
         refreshPermissionSummary()
         refreshScreenshots()
@@ -94,18 +119,33 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
 
         setContent {
-            SnapClearTheme {
+            val systemDarkTheme = isSystemInDarkTheme()
+            SnapClearTheme(darkTheme = systemDarkTheme && !forceLightMode) {
+                val seamlessBackground = MaterialTheme.colorScheme.background.toArgb()
                 MainScreen(
                     isMonitoring = isMonitoring,
                     allPermissionsGranted = allPermissionsGranted,
-                    permissionGrantedCount = permissionGrantedCount,
-                    permissionTotalCount = permissionTotalCount,
+                    permissionStates = permissionStates.toMap(),
+                    exactAlarmGranted = exactAlarmGranted,
+                    batteryOptimizationExempt = batteryOptimizationExempt,
+                    promotedNotificationsGranted = promotedNotificationsGranted,
+                    screenshotAccessibilityEnabled = screenshotAccessibilityEnabled,
+                    forceLightMode = forceLightMode,
+                    screenshotViewMode = screenshotViewMode,
                     homeScreenshots = homeScreenshots,
                     recentPageScreenshots = recentPageScreenshots,
                     currentScreenshotPage = currentScreenshotPage,
                     recentPageHasNext = recentPageHasNext,
                     isLoadingScreenshotPage = isLoadingScreenshotPage,
                     onScreenshotPageSelected = { page -> loadScreenshotPage(page) },
+                    onScreenshotViewModeChange = { mode ->
+                        screenshotViewMode = mode
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(PREF_VIEW_MODE, mode.name).apply()
+                    },
+                    onForceLightModeChange = { enabled ->
+                        forceLightMode = enabled
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(PREF_FORCE_LIGHT_MODE, enabled).apply()
+                    },
                     onToggleMonitoring = { toggleMonitoring() },
                     onCopyDeleteScreenshot = { uri ->
                         com.snapclear.app.clipboard.ClipboardHelper.copyAndDelete(this@MainActivity, uri)
@@ -125,11 +165,25 @@ class MainActivity : ComponentActivity() {
                             activity = this@MainActivity,
                             intent = intent,
                             cornerRadiusPx = 16f * resources.displayMetrics.density,
-                            colorInt = android.graphics.Color.WHITE
+                            colorInt = seamlessBackground
                         )
                     },
-                    permissionsIntent = Intent(this, PermissionsActivity::class.java),
-                    diagnosticsIntent = Intent(this, DiagnosticsActivity::class.java)
+                    onOpenAbout = { view ->
+                        OplusSeamlessHelper.startActivitySeamless(
+                            view = view,
+                            activity = this@MainActivity,
+                            intent = Intent(this@MainActivity, AboutActivity::class.java),
+                            cornerRadiusPx = 8f * resources.displayMetrics.density,
+                            colorInt = seamlessBackground
+                        )
+                    },
+                    onRequestPermission = { requestPermission(it) },
+                    onOpenAppSettings = { PermissionManager.openAppSettings(this@MainActivity) },
+                    onOpenExactAlarmSettings = { PermissionManager.openExactAlarmSettings(this@MainActivity) },
+                    onRequestBatteryOptimization = { PermissionManager.requestBatteryOptimizationExemption(this@MainActivity) },
+                    onOpenOppoBackgroundSettings = { PermissionManager.openOppoBackgroundSettings(this@MainActivity) },
+                    onOpenScreenshotAccessibilitySettings = { showAccessibilityDisclosure() },
+                    onOpenPromotedNotificationsSettings = { PermissionManager.openPromotedNotificationsSettings(this@MainActivity) }
                 )
             }
         }
@@ -200,25 +254,23 @@ class MainActivity : ComponentActivity() {
         val accessibilityRequired = PermissionManager.isOppoDevice()
         val accessibilityOk = !accessibilityRequired ||
             PermissionManager.isScreenshotAccessibilityEnabled(this)
+        required.forEach { permission ->
+            permissionStates[permission] = androidx.core.content.ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        }
+        exactAlarmGranted = exactAlarmOk
+        batteryOptimizationExempt = batteryOk
+        promotedNotificationsGranted = promotedOk
+        screenshotAccessibilityEnabled = !accessibilityRequired || PermissionManager.isScreenshotAccessibilityEnabled(this)
 
-        val specialCount = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 1 else 0) + 1 +
-            (if (Build.VERSION.SDK_INT >= 36) 1 else 0) +
-            (if (accessibilityRequired) 1 else 0)
-        val specialGranted = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 1 else 0) *
-            (if (exactAlarmOk) 1 else 0) + (if (batteryOk) 1 else 0) +
-            (if (Build.VERSION.SDK_INT >= 36) (if (promotedOk) 1 else 0) else 0) +
-            (if (accessibilityRequired && accessibilityOk) 1 else 0)
-
-        permissionGrantedCount = requiredGranted + specialGranted
-        permissionTotalCount = required.size + specialCount
-        allPermissionsGranted = requiredGranted == required.size &&
-            exactAlarmOk && batteryOk && promotedOk && accessibilityOk
+        allPermissionsGranted = arePermissionsComplete(requiredGranted == required.size,
+            exactAlarmOk, batteryOk, promotedOk, accessibilityRequired, accessibilityOk)
     }
 
     /** 刷新最近截图列表（包含未运行期间产生的截图） */
     private fun refreshScreenshots() {
         if (activityDestroyed.get()) return
         // 合并短时间内来自 onResume、截图事件和 MediaStore 的重复刷新，避免创建大量线程。
+        requestedScreenshotPage.set(currentScreenshotPage)
         screenshotQueryGeneration.incrementAndGet()
         screenshotRefreshRequested.set(true)
         if (!screenshotQueryRunning.compareAndSet(false, true)) return
@@ -228,17 +280,27 @@ class MainActivity : ComponentActivity() {
                 do {
                     screenshotRefreshRequested.set(false)
                     val generation = screenshotQueryGeneration.get()
-                    val page = ScreenshotRepository.queryRecentPage(
+                    val visiblePageIndex = requestedScreenshotPage.get()
+                    val firstPage = ScreenshotRepository.queryRecentPage(
                         context = this,
                         limit = SCREENSHOT_PAGE_SIZE,
                         offset = 0
                     )
+                    val visiblePage = if (visiblePageIndex == 0) {
+                        firstPage
+                    } else {
+                        ScreenshotRepository.queryRecentPage(
+                            context = this,
+                            limit = SCREENSHOT_PAGE_SIZE,
+                            offset = visiblePageIndex * SCREENSHOT_PAGE_SIZE
+                        )
+                    }
                     mainHandler.post {
                         if (!isDestroyed && generation == screenshotQueryGeneration.get()) {
-                            homeScreenshots = page.items.take(10)
-                            recentPageScreenshots = page.items
-                            currentScreenshotPage = 0
-                            recentPageHasNext = page.hasMore
+                            homeScreenshots = firstPage.items.take(10)
+                            recentPageScreenshots = visiblePage.items
+                            currentScreenshotPage = visiblePageIndex
+                            recentPageHasNext = visiblePage.hasMore
                             isLoadingScreenshotPage = false
                         }
                     }
@@ -256,7 +318,8 @@ class MainActivity : ComponentActivity() {
         if (activityDestroyed.get() || isLoadingScreenshotPage || pageIndex < 0) return
         if (pageIndex > currentScreenshotPage && !recentPageHasNext) return
         isLoadingScreenshotPage = true
-        val generation = screenshotQueryGeneration.get()
+        requestedScreenshotPage.set(pageIndex)
+        val generation = screenshotQueryGeneration.incrementAndGet()
         screenshotQueryExecutor.execute {
             val page = ScreenshotRepository.queryRecentPage(
                 context = this,
@@ -280,7 +343,7 @@ class MainActivity : ComponentActivity() {
         if (isMonitoring) {
             stopMonitoring()
         } else {
-            if (!PermissionManager.checkAllGranted(this)) {
+            if (!allPermissionsGranted) {
                 Toast.makeText(this, "请先在权限管理中授予权限", Toast.LENGTH_SHORT).show()
                 return
             }
@@ -292,6 +355,27 @@ class MainActivity : ComponentActivity() {
             }
             startMonitoring()
         }
+    }
+
+    private fun requestPermission(permission: String) {
+        if (shouldShowRequestPermissionRationale(permission)) {
+            val message = when (permission) {
+                android.Manifest.permission.READ_MEDIA_IMAGES,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE -> getString(R.string.permission_rationale_storage)
+                android.Manifest.permission.POST_NOTIFICATIONS -> getString(R.string.permission_rationale_notification)
+                else -> "此权限是应用正常运行所必需的"
+            }
+            androidx.appcompat.app.AlertDialog.Builder(this).setTitle(R.string.permission_rationale_title)
+                .setMessage(message).setPositiveButton("授权") { _, _ -> permissionLauncher.launch(arrayOf(permission)) }
+                .setNegativeButton("取消", null).show()
+        } else permissionLauncher.launch(arrayOf(permission))
+    }
+
+    private fun showAccessibilityDisclosure() {
+        androidx.appcompat.app.AlertDialog.Builder(this).setTitle("开启截图实时检测")
+            .setMessage("ColorOS 会冻结后台截图监听。开启后，SnapClear 只监听系统窗口增删并在截图浮层出现时唤醒应用；不会读取窗口内容、屏幕文字、输入内容或操作其他应用。")
+            .setPositiveButton("前往开启") { _, _ -> PermissionManager.openScreenshotAccessibilitySettings(this) }
+            .setNegativeButton("取消", null).show()
     }
 
     private fun startMonitoring() {

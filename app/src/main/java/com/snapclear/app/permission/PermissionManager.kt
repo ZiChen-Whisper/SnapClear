@@ -71,14 +71,35 @@ object PermissionManager {
 
     /** 检查系统是否已启用 SnapClear 的截图实时检测无障碍服务。 */
     fun isScreenshotAccessibilityEnabled(context: Context): Boolean {
+        val expected = ComponentName(context, ScreenshotAccessibilityService::class.java)
+
+        // 系统真正的持久化来源。应用进程重启不会清除该值；直接读取它可以避免
+        // AccessibilityManager 在服务尚未重新绑定的短窗口内误报“未授权”。
+        val persistedEnabled = runCatching {
+            Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            )
+                ?.split(':')
+                ?.mapNotNull(ComponentName::unflattenFromString)
+                ?.any { it == expected }
+                ?: false
+        }.getOrDefault(false)
+        if (persistedEnabled) return true
+
         val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE)
             as? AccessibilityManager ?: return false
-        val expected = ComponentName(context, ScreenshotAccessibilityService::class.java)
         return manager
             .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
             .any { info ->
                 val serviceInfo = info.resolveInfo?.serviceInfo ?: return@any false
-                ComponentName(serviceInfo.packageName, serviceInfo.name) == expected
+                val className = if (serviceInfo.name.startsWith('.')) {
+                    serviceInfo.packageName + serviceInfo.name
+                } else {
+                    serviceInfo.name
+                }
+                ComponentName(serviceInfo.packageName, className) == expected ||
+                    ComponentName.unflattenFromString(info.id) == expected
             }
     }
 

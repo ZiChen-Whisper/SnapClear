@@ -7,19 +7,10 @@ import android.net.Uri
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.Space
-import android.widget.TextView
-import androidx.compose.foundation.layout.Box
+import android.widget.*
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -33,272 +24,144 @@ import com.snapclear.app.ui.image.ScreenshotImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
-/**
- * 最近截图卡片（原生 View 实现，支持 OPPO 无缝动画）
- *
- * 关键设计：整个卡片用 MaterialCardView + 原生 View 树实现，
- * 而非 Compose Composable。这样 OPPO 无缝动画的 setSeamlessView
- * 能获取到真实的卡片 View 作为动画起点。
- *
- * - 点击缩略图：通过 OPPO 无缝动画打开截图详情页
- * - 「拷贝并删除」：复制到剪贴板 + 移入系统回收站
- * - 「删除」：仅将截图移入系统回收站
- */
+enum class ScreenshotViewMode { CARD, LIST }
+
 @Composable
-fun ScreenshotCard(
-    item: ScreenshotItem,
-    onCopyDelete: () -> Unit,
-    onDelete: () -> Unit,
-    onClick: (uri: Uri, view: View) -> Unit
-) {
-    val density = LocalDensity.current
-    val thumbState by rememberThumbnail(item.uri, 300)
-
-    // LazyColumn 复用卡片时（列表增删后条目移位），factory 中捕获的旧 item 会
-    // 导致点击指向错误的截图。rememberUpdatedState 保证回调始终使用当前条目。
-    val latestItem by rememberUpdatedState(item)
-    val latestOnClick by rememberUpdatedState(onClick)
-    val latestOnCopyDelete by rememberUpdatedState(onCopyDelete)
-    val latestOnDelete by rememberUpdatedState(onDelete)
-
-    // 主题颜色
-    val surfaceColor = MaterialTheme.colorScheme.surface
-    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
-    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
-
-    val surfaceArgb = surfaceColor.toArgb()
-    val surfaceVariantArgb = surfaceVariantColor.toArgb()
-    val onSurfaceArgb = onSurfaceColor.toArgb()
-    val onSurfaceVariantArgb = onSurfaceVariantColor.toArgb()
-    val primaryArgb = primaryColor.toArgb()
-    val onPrimaryArgb = onPrimaryColor.toArgb()
-
-    val paddingPx = with(density) { 8.dp.toPx().toInt() }
-    val cornerRadiusPx = with(density) { 16.dp.toPx() }
-    val thumbCornerPx = with(density) { 12.dp.toPx() }
-    val btnCornerPx = with(density) { 10.dp.toPx() }
-    val btnHeightPx = with(density) { 32.dp.toPx().toInt() }
-    val btnWidthIgnorePx = with(density) { 32.dp.toPx().toInt() }
-    val iconSizePx = with(density) { 14.dp.toPx().toInt() }
-    val spacer6Px = with(density) { 6.dp.toPx().toInt() }
-    val spacer4Px = with(density) { 4.dp.toPx().toInt() }
-    val titleTextSize = with(density) { 11.dp.toPx() / density.density }
-    val timeTextSize = with(density) { 10.dp.toPx() / density.density }
-    val btnTextSize = with(density) { 10.dp.toPx() / density.density }
-
-    Box(modifier = Modifier.fillMaxWidth()) {
-        AndroidView(
-            factory = { ctx ->
-                MaterialCardView(ctx).apply card@{
-                    setRadius(cornerRadiusPx)
-                    setCardBackgroundColor(android.content.res.ColorStateList.valueOf(surfaceArgb))
-                    cardElevation = 0f
-                    isClickable = false
-                    isFocusable = false
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-
-                    val contentLayout = LinearLayout(ctx).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                    }
-
-                    // 缩略图容器
-                    val thumbLayout = FrameLayout(ctx).apply {
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                        background = GradientDrawable().apply {
-                            shape = GradientDrawable.RECTANGLE
-                            setCornerRadius(thumbCornerPx)
-                            setColor(surfaceVariantArgb)
-                        }
-                        isClickable = true
-                        setOnClickListener {
-                            // 通过 OPPO 无缝动画打开详情页
-                            latestOnClick(latestItem.uri, this@card)
-                        }
-                    }
-
-                    // 缩略图 ImageView
-                    val thumbView = ImageView(ctx).apply {
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            with(density) { 150.dp.toPx().toInt() } // 固定高度
-                        )
-                    }
-                    thumbLayout.addView(thumbView)
-                    contentLayout.addView(thumbLayout)
-
-                    // 间距
-                    contentLayout.addView(Space(ctx).apply {
-                        layoutParams = LinearLayout.LayoutParams(1, spacer6Px)
-                    })
-
-                    // 文件名
-                    val nameView = TextView(ctx).apply {
-                        text = item.displayName
-                        setTextColor(onSurfaceArgb)
-                        textSize = titleTextSize
-                        maxLines = 1
-                        ellipsize = android.text.TextUtils.TruncateAt.END
-                    }
-                    contentLayout.addView(nameView)
-
-                    // 时间
-                    val timeView = TextView(ctx).apply {
-                        text = formatTime(item.dateTaken)
-                        setTextColor(onSurfaceVariantArgb)
-                        textSize = timeTextSize
-                    }
-                    contentLayout.addView(timeView)
-
-                    // 间距
-                    contentLayout.addView(Space(ctx).apply {
-                        layoutParams = LinearLayout.LayoutParams(1, spacer6Px)
-                    })
-
-                    // 按钮行
-                    val btnRow = LinearLayout(ctx).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                    }
-
-                    // 「拷贝并删除」按钮
-                    val copyDeleteBtn = LinearLayout(ctx).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER
-                        background = GradientDrawable().apply {
-                            shape = GradientDrawable.RECTANGLE
-                            setCornerRadius(btnCornerPx)
-                            setColor(primaryArgb)
-                        }
-                        isClickable = true
-                        setOnClickListener { latestOnCopyDelete() }
-                        layoutParams = LinearLayout.LayoutParams(
-                            0,
-                            btnHeightPx,
-                            1f
-                        )
-                    }
-                    val copyDeleteIcon = ImageView(ctx).apply {
-                        setImageResource(R.drawable.ic_action_copy_delete)
-                        imageTintList = android.content.res.ColorStateList.valueOf(onPrimaryArgb)
-                        layoutParams = LinearLayout.LayoutParams(iconSizePx, iconSizePx)
-                    }
-                    val copyDeleteText = TextView(ctx).apply {
-                        text = "拷贝并删除"
-                        setTextColor(onPrimaryArgb)
-                        textSize = btnTextSize
-                        setTypeface(typeface, Typeface.BOLD)
-                    }
-                    copyDeleteBtn.addView(copyDeleteIcon)
-                    copyDeleteBtn.addView(Space(ctx).apply {
-                        layoutParams = LinearLayout.LayoutParams(spacer4Px, 1)
-                    })
-                    copyDeleteBtn.addView(copyDeleteText)
-                    btnRow.addView(copyDeleteBtn)
-
-                    // 按钮间距
-                    btnRow.addView(Space(ctx).apply {
-                        layoutParams = LinearLayout.LayoutParams(spacer4Px, 1)
-                    })
-
-                    // 「删除」按钮
-                    val deleteBtn = LinearLayout(ctx).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER
-                        background = GradientDrawable().apply {
-                            shape = GradientDrawable.RECTANGLE
-                            setCornerRadius(btnCornerPx)
-                            setColor(surfaceVariantArgb)
-                        }
-                        isClickable = true
-                        setOnClickListener { latestOnDelete() }
-                        layoutParams = LinearLayout.LayoutParams(btnWidthIgnorePx, btnHeightPx)
-                    }
-                    val deleteIcon = ImageView(ctx).apply {
-                        setImageResource(R.drawable.ic_action_delete)
-                        imageTintList = android.content.res.ColorStateList.valueOf(onSurfaceVariantArgb)
-                        layoutParams = LinearLayout.LayoutParams(iconSizePx, iconSizePx)
-                    }
-                    deleteBtn.addView(deleteIcon)
-                    btnRow.addView(deleteBtn)
-
-                    contentLayout.addView(btnRow)
-                    addView(contentLayout)
-                }
-            },
-            update = { view ->
-                // 更新缩略图
-                val contentLayout = view.getChildAt(0) as? LinearLayout
-                val thumbLayout = contentLayout?.getChildAt(0) as? FrameLayout
-                val thumbView = thumbLayout?.getChildAt(0) as? ImageView
-                thumbView?.let { iv ->
-                    val bmp = thumbState
-                    if (bmp != null) {
-                        iv.setImageBitmap(bmp)
-                        iv.visibility = View.VISIBLE
-                    } else {
-                        iv.setImageDrawable(null)
+fun ScreenshotCard(item: ScreenshotItem, viewMode: ScreenshotViewMode, onCopyDelete: (Uri) -> Unit,
+    onDelete: (Uri) -> Unit, onClick: (Uri, View) -> Unit) {
+    val density = LocalDensity.current; val thumbnail by rememberThumbnail(item.uri, if (viewMode == ScreenshotViewMode.CARD) 360 else 180, item.thumbnailCacheToken())
+    val latestClick by rememberUpdatedState(onClick)
+    val latestCopy by rememberUpdatedState(onCopyDelete); val latestDelete by rememberUpdatedState(onDelete)
+    val surface = MaterialTheme.colorScheme.surface.toArgb(); val variant = MaterialTheme.colorScheme.surfaceVariant.toArgb()
+    val onSurface = MaterialTheme.colorScheme.onSurface.toArgb(); val onVariant = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+    val primary = MaterialTheme.colorScheme.primary.toArgb(); val onPrimary = MaterialTheme.colorScheme.onPrimary.toArgb()
+    val pad = with(density) { 8.dp.roundToPx() }; val radius = with(density) { 18.dp.toPx() }
+    key(viewMode, surface, variant, onSurface, onVariant, primary, onPrimary) {
+        AndroidView(factory = { ctx -> MaterialCardView(ctx).apply card@{
+            setRadius(radius); setCardBackgroundColor(surface); cardElevation = 0f
+            val root = LinearLayout(ctx).apply { orientation = if (viewMode == ScreenshotViewMode.CARD) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(pad, pad, pad, pad) }
+            val imageSize = with(density) { (if (viewMode == ScreenshotViewMode.CARD) 154.dp else 48.dp).roundToPx() }
+            val imageCard = MaterialCardView(ctx).apply {
+                this.radius = with(density) { 14.dp.toPx() }; setCardBackgroundColor(variant); cardElevation = 0f
+                layoutParams = if (viewMode == ScreenshotViewMode.CARD) LinearLayout.LayoutParams(-1, imageSize) else LinearLayout.LayoutParams(imageSize, imageSize)
+                addView(ImageView(ctx).apply { tag = TAG_IMAGE; scaleType = ImageView.ScaleType.CENTER_CROP; layoutParams = ViewGroup.LayoutParams(-1, -1) })
+                isClickable = true; setOnClickListener {
+                    (this@card.tag as? ScreenshotCardBinding)?.let { binding ->
+                        binding.onClick(binding.uri, this@card)
                     }
                 }
-
-                // 更新文件名
-                val nameView = contentLayout?.getChildAt(2) as? TextView
-                nameView?.text = item.displayName
-
-                // LazyColumn 复用原生卡片时同步更新时间，避免显示上一条目的值。
-                val timeView = contentLayout?.getChildAt(3) as? TextView
-                timeView?.text = formatTime(item.dateTaken)
-            },
-            // 提供非空 onReset 后，Compose 才会在 LazyGrid 中复用 AndroidView，
-            // 避免滚出屏幕后再次进入时重建完整的 MaterialCardView 子树。
-            onReset = { view ->
-                val contentLayout = view.getChildAt(0) as? LinearLayout
-                val thumbLayout = contentLayout?.getChildAt(0) as? FrameLayout
-                val thumbView = thumbLayout?.getChildAt(0) as? ImageView
-                thumbView?.setImageDrawable(null)
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
+            }
+            root.addView(imageCard); root.addView(Space(ctx).apply { layoutParams = LinearLayout.LayoutParams(with(density) { (if (viewMode == ScreenshotViewMode.CARD) 1.dp else 12.dp).roundToPx() }, 1) })
+            if (viewMode == ScreenshotViewMode.CARD) {
+                val details = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(0, with(density) { 6.dp.roundToPx() }, 0, 0); layoutParams = LinearLayout.LayoutParams(-1, -2) }
+                details.addView(label(ctx, TAG_NAME, onSurface, 12f)); details.addView(label(ctx, TAG_TIME, onVariant, 10f))
+                val actions = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END; setPadding(0, with(density) { 6.dp.roundToPx() }, 0, 0) }
+                actions.addView(actionButton(ctx, "拷贝并删除", R.drawable.ic_action_copy_delete, primary, onPrimary, with(density) { 98.dp.roundToPx() }) {
+                    (this@card.tag as? ScreenshotCardBinding)?.let { it.onCopyDelete(it.uri) }
+                })
+                actions.addView(Space(ctx).apply { layoutParams = LinearLayout.LayoutParams(with(density) { 5.dp.roundToPx() }, 1) })
+                actions.addView(actionButton(ctx, "", R.drawable.ic_action_delete, variant, onVariant, with(density) { 32.dp.roundToPx() }) {
+                    (this@card.tag as? ScreenshotCardBinding)?.let { it.onDelete(it.uri) }
+                })
+                details.addView(actions); root.addView(details)
+            } else {
+                val text = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) }
+                text.addView(label(ctx, TAG_NAME, onSurface, 14f)); text.addView(label(ctx, TAG_TIME, onVariant, 11f)); root.addView(text)
+                val actions = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                actions.addView(actionButton(ctx, "", R.drawable.ic_action_copy_delete, primary, onPrimary, with(density) { 34.dp.roundToPx() }) {
+                    (this@card.tag as? ScreenshotCardBinding)?.let { it.onCopyDelete(it.uri) }
+                })
+                actions.addView(Space(ctx).apply { layoutParams = LinearLayout.LayoutParams(with(density) { 6.dp.roundToPx() }, 1) })
+                actions.addView(actionButton(ctx, "", R.drawable.ic_action_delete, variant, onVariant, with(density) { 34.dp.roundToPx() }) {
+                    (this@card.tag as? ScreenshotCardBinding)?.let { it.onDelete(it.uri) }
+                }); root.addView(actions)
+            }
+            addView(root)
+        } }, update = { card ->
+            card.tag = ScreenshotCardBinding(item.uri, latestClick, latestCopy, latestDelete)
+            card.findViewWithTag<ImageView>(TAG_IMAGE).apply {
+                if (thumbnailBelongsTo(item.uri.toString(), thumbnail.uri.toString()) && thumbnail.bitmap != null) setImageBitmap(thumbnail.bitmap) else setImageDrawable(null)
+            }
+            card.findViewWithTag<TextView>(TAG_NAME).text = item.displayName; card.findViewWithTag<TextView>(TAG_TIME).text = formatScreenshotTime(item.dateTaken)
+        }, onReset = { card -> card.tag = null; card.findViewWithTag<ImageView>(TAG_IMAGE)?.setImageDrawable(null) }, modifier = Modifier.fillMaxWidth())
     }
 }
 
-/**
- * 异步加载缩略图
- */
-@Composable
-private fun rememberThumbnail(uri: Uri, sizePx: Int): State<Bitmap?> {
+private fun label(ctx: android.content.Context, tagValue: String, color: Int, size: Float) = TextView(ctx).apply { tag = tagValue; setTextColor(color); textSize = size; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+private fun actionButton(ctx: android.content.Context, textValue: String, icon: Int, bg: Int, fg: Int, width: Int, click: () -> Unit) = LinearLayout(ctx).apply {
+    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding((5 * resources.displayMetrics.density).toInt(), 0, (5 * resources.displayMetrics.density).toInt(), 0)
+    background = GradientDrawable().apply { cornerRadius = 10 * resources.displayMetrics.density; setColor(bg) }; layoutParams = LinearLayout.LayoutParams(width, (34 * resources.displayMetrics.density).toInt()); isClickable = true; setOnClickListener { click() }
+    addView(ImageView(ctx).apply { setImageResource(icon); imageTintList = android.content.res.ColorStateList.valueOf(fg); layoutParams = LinearLayout.LayoutParams((14 * resources.displayMetrics.density).toInt(), (14 * resources.displayMetrics.density).toInt()) })
+    if (textValue.isNotEmpty()) { addView(Space(ctx).apply { layoutParams = LinearLayout.LayoutParams((4 * resources.displayMetrics.density).toInt(), 1) }); addView(TextView(ctx).apply { text = textValue; setTextColor(fg); textSize = 9f; setTypeface(typeface, Typeface.BOLD); maxLines = 1 }) }
+}
+
+@Composable fun ScreenshotPagerThumbnail(item: ScreenshotItem, onClick: (Uri, View) -> Unit, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current; val thumbnail by rememberThumbnail(item.uri, 144, item.thumbnailCacheToken()); val latestClick by rememberUpdatedState(onClick)
+    val outline = MaterialTheme.colorScheme.outlineVariant.toArgb()
+    AndroidView(
+        factory = { ctx ->
+            MaterialCardView(ctx).apply card@{
+                radius = with(density) { 12.dp.toPx() }
+                strokeWidth = with(density) { 1.dp.roundToPx() }
+                strokeColor = outline
+                cardElevation = 0f
+                addView(ImageView(ctx).apply { scaleType = ImageView.ScaleType.CENTER_CROP; layoutParams = ViewGroup.LayoutParams(-1, -1) })
+                setOnClickListener {
+                    (this@card.tag as? ScreenshotClickBinding)?.let { binding ->
+                        binding.onClick(binding.uri, this@card)
+                    }
+                }
+            }
+        },
+        update = { card ->
+            card.tag = ScreenshotClickBinding(item.uri, latestClick)
+            card.strokeColor = outline
+            (card.getChildAt(0) as ImageView).apply {
+                if (thumbnailBelongsTo(item.uri.toString(), thumbnail.uri.toString()) && thumbnail.bitmap != null) setImageBitmap(thumbnail.bitmap) else setImageDrawable(null)
+            }
+        },
+        onReset = { card -> card.tag = null; (card.getChildAt(0) as? ImageView)?.setImageDrawable(null) },
+        modifier = modifier
+    )
+}
+
+private data class ScreenshotCardBinding(
+    val uri: Uri,
+    val onClick: (Uri, View) -> Unit,
+    val onCopyDelete: (Uri) -> Unit,
+    val onDelete: (Uri) -> Unit
+)
+
+private data class ScreenshotClickBinding(
+    val uri: Uri,
+    val onClick: (Uri, View) -> Unit
+)
+
+private data class ThumbnailResult(val uri: Uri, val bitmap: Bitmap?)
+
+internal fun thumbnailBelongsTo(itemUri: String, resultUri: String): Boolean =
+    itemUri == resultUri
+
+@Composable private fun rememberThumbnail(uri: Uri, size: Int, cacheToken: String): State<ThumbnailResult> {
     val context = LocalContext.current
-    val cached = ScreenshotImageLoader.peekThumbnail(uri, sizePx)
-    return produceState<Bitmap?>(initialValue = cached, uri, sizePx) {
-        if (cached != null) return@produceState
-        // 条目切换时先清空旧图，避免 LazyGrid 复用卡片时短暂显示上一张的缩略图
-        value = null
-        value = withContext(Dispatchers.IO) {
-            ScreenshotImageLoader.loadThumbnail(context.contentResolver, uri, sizePx)
+    return produceState(ThumbnailResult(uri, ScreenshotImageLoader.peekThumbnail(uri, size, cacheToken)), uri, size, cacheToken) {
+        value = ThumbnailResult(uri, ScreenshotImageLoader.peekThumbnail(uri, size, cacheToken))
+        if (value.bitmap == null) {
+            val bitmap = withContext(Dispatchers.IO) {
+                ScreenshotImageLoader.loadThumbnail(context.contentResolver, uri, size, cacheToken)
+            }
+            value = ThumbnailResult(uri, bitmap)
         }
     }
 }
 
-private val timeFormat = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
-private fun formatTime(timestamp: Long): String = timeFormat.format(Date(timestamp))
+private fun ScreenshotItem.thumbnailCacheToken(): String =
+    "$id:$dateTaken:$size:$displayName"
+
+internal val screenshotTimeFormat = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
+internal fun formatScreenshotTime(timestamp: Long): String = screenshotTimeFormat.format(Date(timestamp))
+internal fun formatScreenshotRange(items: List<ScreenshotItem>): String = formatTimestampRange(items.map { it.dateTaken })
+internal fun formatTimestampRange(timestamps: List<Long>): String = if (timestamps.isEmpty()) "本页暂无截图" else { val oldest = timestamps.min(); val newest = timestamps.max(); if (oldest == newest) formatScreenshotTime(newest) else "${formatScreenshotTime(oldest)} — ${formatScreenshotTime(newest)}" }
+private const val TAG_IMAGE = "screenshot_image"; private const val TAG_NAME = "screenshot_name"; private const val TAG_TIME = "screenshot_time"

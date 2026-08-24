@@ -30,7 +30,7 @@ import com.snapclear.app.notification.NotificationHelper
  * 第 2 层 — ContentObserver（实时，功耗极低）
  *   监听 MediaStore.Images 变化，作为 FileObserver 的交叉备份。
  *
- * 第 3 层 — Handler 轮询（每 10 秒，进程内存活时最可靠的兜底）
+ * 第 3 层 — Handler 轮询（每 30 秒，进程内存活时的兜底）
  *   在前台服务进程内部用 Handler.postDelayed 定时查询 MediaStore。
  *   不依赖 AlarmManager / 系统调度，只要进程存活就能按时触发。
  *   在国产 ROM 上，FileObserver 和 ContentObserver 在后台可能被延迟
@@ -45,7 +45,7 @@ import com.snapclear.app.notification.NotificationHelper
  * - START_STICKY（系统杀死后自动重启）
  * - AlarmReceiver 检测到服务未运行时自动拉起
  * - BootReceiver 开机自启
- * - WakeLock（PARTIAL：防止 CPU 休眠导致进程被国产 ROM 冻结）
+ * - 检测期间短时 WakeLock（不再常驻持锁，降低待机功耗）
  *
  * 状态持久化：
  * - monitoring_enabled：用户监听意愿（控制自动重启）
@@ -63,17 +63,10 @@ class ScreenshotMonitorService : Service() {
         const val ACTION_WATCHDOG_WAKE = "com.snapclear.app.action.WATCHDOG_WAKE"
 
         /** Handler 轮询间隔（毫秒） */
-        private const val POLL_INTERVAL_MS = 10_000L
+        private const val POLL_INTERVAL_MS = 30_000L
 
-        /**
-         * WakeLock 使用有限租期并提前续租，既避免异常路径永久持锁，也修复原先
-         * 固定 30 分钟后自动失效、监听仍显示开启但后台线程已无法运行的问题。
-         */
-        private const val WAKE_LOCK_LEASE_MS = 2 * 60_000L
-        private const val WAKE_LOCK_RENEW_INTERVAL_MS = 60_000L
-
-        /** WakeLock tag */
-        private const val WAKELOCK_TAG = "snapclear:monitor_wakelock"
+        private const val DETECTION_WAKE_LOCK_TIMEOUT_MS = 8_000L
+        private const val WAKELOCK_TAG = "snapclear:monitor_detection"
 
         @Volatile
         var isRunning: Boolean = false
@@ -116,23 +109,22 @@ class ScreenshotMonitorService : Service() {
     private var pollThread: HandlerThread? = null
     private var pollHandler: Handler? = null
 
-    // WakeLock：防止 CPU 休眠导致进程被国产 ROM 冻结
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var lastWakeLockRenewElapsed = 0L
     private val pollRunnable = object : Runnable {
         override fun run() {
-            try {
-                renewWakeLockIfNeeded("poll")
-                DiagnosticLogger.log(DiagnosticEventType.POLL, "轮询触发, lastDetectedId=${ScreenshotObserver.lastDetectedId}")
-                ScreenshotObserver.detectAndAdvance(contentResolver) { uri ->
-                    DiagnosticLogger.log(DiagnosticEventType.POLL, "轮询发现截图: $uri")
-                    NotificationHelper.showScreenshotNotification(applicationContext, uri)
-                    ScreenshotEvents.notifyScreenshotDetected()
+            withDetectionWakeLock("poll") {
+                try {
+                    DiagnosticLogger.log(DiagnosticEventType.POLL, "轮询触发, lastDetectedId=${ScreenshotObserver.lastDetectedId}")
+                    NotificationHelper.reconcileActiveScreenshotNotifications(applicationContext)
+                    ScreenshotObserver.detectAndAdvance(contentResolver) { uri ->
+                        DiagnosticLogger.log(DiagnosticEventType.POLL, "轮询发现截图: $uri")
+                        NotificationHelper.showScreenshotNotification(applicationContext, uri)
+                        ScreenshotEvents.notifyScreenshotDetected()
+                    }
+                    recordHeartbeat(applicationContext)
+                } catch (e: Exception) {
+                    DiagnosticLogger.log(DiagnosticEventType.ERROR, "轮询异常: ${e.message}")
+                    Log.e(TAG, "Poll tick failed", e)
                 }
-                recordHeartbeat(applicationContext)
-            } catch (e: Exception) {
-                DiagnosticLogger.log(DiagnosticEventType.ERROR, "轮询异常: ${e.message}")
-                Log.e(TAG, "Poll tick failed", e)
             }
             // 安排下一次轮询
             pollHandler?.postDelayed(this, POLL_INTERVAL_MS)
@@ -167,8 +159,6 @@ class ScreenshotMonitorService : Service() {
                 Log.e(TAG, "startForeground failed — service will run as background (may be killed)", e)
                 DiagnosticLogger.log(DiagnosticEventType.ERROR, "startForeground 失败: ${e.message}")
             }
-
-            renewWakeLockIfNeeded("service start", force = true)
 
             // 初始化持久化上下文 + 恢复 lastDetectedId
             ScreenshotObserver.init(this)
@@ -224,7 +214,6 @@ class ScreenshotMonitorService : Service() {
 
         if (intent?.action == ACTION_WATCHDOG_WAKE) {
             val age = heartbeatAgeMs(this)
-            renewWakeLockIfNeeded("watchdog", force = true)
             DiagnosticLogger.log(
                 if (age > POLL_INTERVAL_MS * 3) DiagnosticEventType.WARNING else DiagnosticEventType.INFO,
                 "watchdog 唤醒服务, 上次心跳=${if (age == Long.MAX_VALUE) "无" else "${age}ms 前"}"
@@ -258,16 +247,6 @@ class ScreenshotMonitorService : Service() {
             ScreenshotContentJobService.cancel(this)
         }
 
-        // 释放 WakeLock
-        try {
-            wakeLock?.let {
-                if (it.isHeld) it.release()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "WakeLock release failed", e)
-        }
-        wakeLock = null
-
         // 停止 Handler 轮询
         pollHandler?.removeCallbacksAndMessages(null)
         pollThread?.quitSafely()
@@ -291,44 +270,30 @@ class ScreenshotMonitorService : Service() {
         super.onTaskRemoved(rootIntent)
     }
 
-    @Synchronized
-    private fun renewWakeLockIfNeeded(source: String, force: Boolean = false) {
-        val now = SystemClock.elapsedRealtime()
-        val current = wakeLock
-        if (!force && current?.isHeld == true &&
-            now - lastWakeLockRenewElapsed < WAKE_LOCK_RENEW_INTERVAL_MS
-        ) {
-            return
-        }
-
-        try {
-            if (current?.isHeld == true) current.release()
-        } catch (e: Exception) {
-            Log.w(TAG, "WakeLock release before renewal failed", e)
-        }
-
-        try {
-            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(
+    private inline fun withDetectionWakeLock(source: String, block: () -> Unit) {
+        val lock = runCatching {
+            (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
                 WAKELOCK_TAG
             ).apply {
                 setReferenceCounted(false)
-                acquire(WAKE_LOCK_LEASE_MS)
+                acquire(DETECTION_WAKE_LOCK_TIMEOUT_MS)
             }
-            lastWakeLockRenewElapsed = now
-            Log.d(TAG, "WakeLock renewed by $source")
-        } catch (e: Exception) {
-            wakeLock = null
-            DiagnosticLogger.log(DiagnosticEventType.ERROR, "WakeLock 续租失败: ${e.message}")
-            Log.e(TAG, "WakeLock renewal failed", e)
+        }.getOrElse { error ->
+            Log.w(TAG, "Short WakeLock acquire failed for $source", error)
+            null
+        }
+        try {
+            block()
+        } finally {
+            runCatching { if (lock?.isHeld == true) lock.release() }
         }
     }
 
     private fun buildMonitorNotification() = NotificationCompat.Builder(
         this, NotificationHelper.CHANNEL_ID_MONITOR
     )
-        .setSmallIcon(android.R.drawable.ic_menu_gallery)
+        .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(getString(R.string.notification_monitor_title))
         .setContentText(getString(R.string.notification_monitor_text))
         .setOngoing(true)

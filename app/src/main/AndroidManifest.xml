@@ -43,7 +43,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -64,27 +65,20 @@
             android:taskAffinity=""
             android:theme="@style/Theme.SnapClear.NotificationAction" />
 
-        <!-- 权限管理二级菜单（由主页卡片经 OPPO 无缝动画启动） -->
-        <activity
-            android:name=".PermissionsActivity"
-            android:exported="false"
-            android:label="@string/title_permissions"
-            android:parentActivityName=".MainActivity"
-            android:theme="@style/Theme.SnapClear" />
-
-        <!-- 诊断面板二级菜单（由主页卡片经 OPPO 无缝动画启动） -->
-        <activity
-            android:name=".DiagnosticsActivity"
-            android:exported="false"
-            android:label="@string/title_diagnostics"
-            android:parentActivityName=".MainActivity"
-            android:theme="@style/Theme.SnapClear" />
-
         <!-- 截图详情二级菜单（由主页最近截图卡片经 OPPO 无缝动画启动） -->
         <activity
             android:name=".ScreenshotDetailActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.SnapClear" />
+
+        <!-- 关于二级页面（由主页 SnapClear 文字经 OPPO 无缝动画启动） -->
+        <activity
+            android:name=".AboutActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.SnapClear" />
 
         <!-- 截图监听前台服务（specialUse 类型无 6 小时超时限制） -->

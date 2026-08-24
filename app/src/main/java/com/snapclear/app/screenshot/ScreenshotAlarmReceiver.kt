@@ -18,7 +18,7 @@ import com.snapclear.app.permission.PermissionManager
  * AlarmManager 定时唤醒截图检测
  *
  * 调度策略：
- * - OPPO/OnePlus/Realme：15 秒 AlarmClock watchdog。它由系统持有，能在 Hans/Athena
+ * - OPPO/OnePlus/Realme：5 分钟 AlarmClock watchdog。它由系统持有，能在 Hans/Athena
  *   暂停应用线程后重新给检测代码执行机会，但会显示系统闹钟标识并增加耗电。
  * - 其他设备：setExactAndAllowWhileIdle → setAndAllowWhileIdle → setAlarmClock 回退。
  *
@@ -36,8 +36,8 @@ class ScreenshotAlarmReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "ScreenshotAlarmReceiver"
         private const val ACTION_CHECK = "com.snapclear.app.action.ALARM_CHECK"
-        private const val DEFAULT_INTERVAL_MS = 30_000L
-        private const val OPPO_WATCHDOG_INTERVAL_MS = 15_000L
+        private const val DEFAULT_INTERVAL_MS = 15 * 60_000L
+        private const val OPPO_WATCHDOG_INTERVAL_MS = 5 * 60_000L
         private const val REQUEST_CODE = 200
         private const val WAKE_LOCK_TIMEOUT_MS = 10_000L
 

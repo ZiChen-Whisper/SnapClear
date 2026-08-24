@@ -49,17 +49,4 @@
     <string name="toast_copied_delete_failed">已拷贝到剪贴板，但删除失败，请手动删除</string>
     <string name="toast_copy_failed">拷贝失败</string>
 
-    <!-- 二级菜单标题 -->
-    <string name="title_permissions">权限管理</string>
-    <string name="title_diagnostics">诊断面板</string>
-
-    <!-- 主页仪表盘 -->
-    <string name="dashboard_section_manage">管理</string>
-    <string name="dashboard_card_permissions_title">权限管理</string>
-    <string name="dashboard_card_permissions_subtitle_ready">全部权限已就绪</string>
-    <string name="dashboard_card_permissions_subtitle_pending">%1$d / %2$d 项已授权</string>
-    <string name="dashboard_card_diagnostics_title">诊断面板</string>
-    <string name="dashboard_card_diagnostics_subtitle">查看检测管线状态与事件日志</string>
-    <string name="dashboard_status_ready">已就绪</string>
-    <string name="dashboard_status_pending">待授权</string>
 </resources>

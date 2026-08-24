@@ -9,6 +9,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.database.ContentObserver
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.net.Uri
@@ -17,6 +18,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.MediaStore
 import android.util.Log
 import android.util.LruCache
 import android.util.Size
@@ -88,8 +90,12 @@ object NotificationHelper {
     /** 当前活跃的截图通知 ID 集合 —— 支持多通知并存，各自独立倒计时 */
     private val activeScreenshotIds = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
 
+    private val mediaObserverLock = Any()
+    private var mediaObserverThread: HandlerThread? = null
+    private var mediaObserver: ContentObserver? = null
+
     /** 流体云强调色（品牌青绿） */
-    private const val ACCENT_COLOR = 0xFF0D9488.toInt()
+    private const val ACCENT_COLOR = 0xFF0B6565.toInt()
 
     /** 流体云倒计时总时长（60 秒） */
     private const val LIVE_UPDATE_DURATION_MS = 60_000L
@@ -166,6 +172,7 @@ object NotificationHelper {
         val startTime = System.currentTimeMillis()
         // 持久化状态：AlarmManager tick / 进程重建后仍可恢复
         persistLiveUpdateState(context, notificationId, imageUri, startTime)
+        ensureScreenshotDeletionObserver(context)
         Log.d("SnapClear Notify", "showScreenshotNotification: id=$notificationId, uri=$imageUri")
 
         val isForeground = isAppInForeground(context)
@@ -173,6 +180,7 @@ object NotificationHelper {
         try {
             // WakeLock 已先于通知获得：第一时间同步 notify，后台也先尝试直发。
             postScreenshotNotification(context, imageUri, notificationId, isForeground)
+            scheduleExpiry(context.applicationContext, notificationId)
 
             if (!isForeground) {
                 // 无障碍系统绑定已经唤醒并托管进程；在 WakeLock 保持期间直接用
@@ -221,6 +229,8 @@ object NotificationHelper {
      * 实际发送截图通知（由 [showScreenshotNotification] 或闹钟唤醒的 Receiver 调用）
      */
     fun postScreenshotNotification(context: Context, imageUri: Uri, notificationId: Int) {
+        activeScreenshotIds.add(notificationId)
+        ensureScreenshotDeletionObserver(context)
         postScreenshotNotification(context, imageUri, notificationId, isForeground = true)
     }
 
@@ -231,6 +241,10 @@ object NotificationHelper {
         isForeground: Boolean
     ) {
         val appContext = context.applicationContext
+        if (!isImageAvailable(appContext, imageUri)) {
+            cancelNotification(appContext, notificationId)
+            return
+        }
         val (contentIntent, copyDeletePendingIntent, ignorePendingIntent) =
             buildPendingIntents(context, imageUri, notificationId)
 
@@ -238,7 +252,7 @@ object NotificationHelper {
         // ColorOS 16 完整接入 Android 16 Live Updates API，前后台均支持流体云
         // 仅需 POST_PROMOTED_NOTIFICATIONS 权限（API 36+），未授权时回退
         val promotedGranted = Build.VERSION.SDK_INT < 36 || manager.canPostPromotedNotifications()
-        val useLiveUpdate = Build.VERSION.SDK_INT >= 36 && promotedGranted
+        val useLiveUpdate = isApi36Point1OrNewer() && promotedGranted
         if (Build.VERSION.SDK_INT >= 36 && !promotedGranted) {
             DiagnosticLogger.log(
                 DiagnosticEventType.WARNING,
@@ -361,7 +375,6 @@ object NotificationHelper {
             .setContentTitle(context.getString(R.string.notification_screenshot_title))
             .setContentText(baseText)
             .setColor(ACCENT_COLOR)
-            .setRequestPromotedOngoing(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             // 由 NotificationManager/SystemUI 到时直接删除，不依赖应用进程或闹钟。
@@ -377,6 +390,14 @@ object NotificationHelper {
                 Notification.BigTextStyle()
                     .bigText("$baseText\n请在倒计时结束前处理")
             )
+
+        // setRequestPromotedOngoing 在 Android 16 的 36.1 minor release 才加入。
+        // SDK_INT 仍为 36，必须同时检查 SDK_INT_FULL，避免 36.0 设备崩溃。
+        if (Build.VERSION.SDK_INT >= 36 &&
+            Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1
+        ) {
+            builder.setRequestPromotedOngoing(true)
+        }
 
         // 展开态左上角：对应截图缩略图（largeIcon 渲染在卡片头部左侧）
         loadThumbnail(context, imageUri)?.let { thumbnail ->
@@ -448,8 +469,8 @@ object NotificationHelper {
     }
 
     /**
-     * 只调度一次到期闹钟。倒计时显示由 SystemUI 的 Chronometer 驱动，
-     * 无需也不能用每秒精确闹钟（Android 会对 allow-while-idle 闹钟限频）。
+     * 只调度一次非唤醒到期闹钟。倒计时显示与界面移除由 SystemUI 驱动；
+     * 本闹钟只负责在设备本来就醒着时清理持久化状态，不额外唤醒设备。
      */
     private fun scheduleExpiry(context: Context, notificationId: Int) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -461,18 +482,15 @@ object NotificationHelper {
             context, notificationId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val triggerAt = loadLiveUpdateState(context, notificationId)?.startTime
-            ?.plus(LIVE_UPDATE_DURATION_MS) ?: return
+        val state = loadLiveUpdateState(context, notificationId) ?: return
+        val remaining = (state.startTime + LIVE_UPDATE_DURATION_MS - System.currentTimeMillis())
+            .coerceAtLeast(0L)
         try {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-            return
-        } catch (_: SecurityException) {
-            // SCHEDULE_EXACT_ALARM 未授予，继续 fallback
-        } catch (_: Exception) {
-            // 其他异常，继续 fallback
-        }
-        try {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+            alarmManager.set(
+                AlarmManager.ELAPSED_REALTIME,
+                android.os.SystemClock.elapsedRealtime() + remaining,
+                pendingIntent
+            )
         } catch (_: Exception) {
             Log.w("SnapClear Notify", "scheduleExpiry failed for id=$notificationId")
         }
@@ -489,6 +507,14 @@ object NotificationHelper {
         val state = loadLiveUpdateState(appContext, notificationId)
         if (state == null) {
             // 状态已清除（通知已被处理）→ 兜底取消
+            cancelNotification(appContext, notificationId)
+            return
+        }
+        if (!isImageAvailable(appContext, state.imageUri)) {
+            DiagnosticLogger.log(
+                DiagnosticEventType.INFO,
+                "截图已删除，取消流体云通知(id=$notificationId)"
+            )
             cancelNotification(appContext, notificationId)
             return
         }
@@ -557,7 +583,104 @@ object NotificationHelper {
         cancelAlarms(appContext, id)
         appContext.getSystemService(NotificationManager::class.java).cancel(id)
         activeScreenshotIds.remove(id)
+        loadLiveUpdateState(appContext, id)?.let { state ->
+            synchronized(thumbnailCache) {
+                thumbnailCache.remove(state.imageUri.toString())
+            }
+        }
         clearLiveUpdateState(appContext, id)
+        if (persistedLiveUpdateIds(appContext).isEmpty()) {
+            stopScreenshotDeletionObserver(appContext)
+        }
+    }
+
+    /**
+     * 只在流体云/截图通知存活的短时间内监听 MediaStore。图片被相册、详情页或
+     * 系统回收站删除后，ContentObserver 会立即核对 URI 并取消对应通知。
+     */
+    private fun ensureScreenshotDeletionObserver(context: Context) {
+        val appContext = context.applicationContext
+        synchronized(mediaObserverLock) {
+            if (mediaObserver != null) return
+            persistedLiveUpdateIds(appContext).forEach(activeScreenshotIds::add)
+            val thread = HandlerThread("ScreenshotNotificationObserver").apply { start() }
+            val observer = object : ContentObserver(Handler(thread.looper)) {
+                override fun onChange(selfChange: Boolean) {
+                    cancelNotificationsForMissingImages(appContext)
+                }
+
+                override fun onChange(selfChange: Boolean, uri: Uri?) {
+                    cancelNotificationsForMissingImages(appContext)
+                }
+            }
+            try {
+                appContext.contentResolver.registerContentObserver(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    true,
+                    observer
+                )
+                mediaObserverThread = thread
+                mediaObserver = observer
+            } catch (error: Exception) {
+                thread.quitSafely()
+                Log.w("SnapClear Notify", "Unable to observe screenshot deletion", error)
+            }
+        }
+    }
+
+    private fun cancelNotificationsForMissingImages(context: Context) {
+        persistedLiveUpdateIds(context).forEach { id ->
+            val state = loadLiveUpdateState(context, id) ?: return@forEach
+            if (!isImageAvailable(context, state.imageUri)) {
+                DiagnosticLogger.log(
+                    DiagnosticEventType.INFO,
+                    "MediaStore 已删除截图，立即取消通知(id=$id)"
+                )
+                cancelNotification(context, id)
+            }
+        }
+    }
+
+    /** 供 JobScheduler/看门狗唤醒路径补做一次删除同步。 */
+    fun reconcileActiveScreenshotNotifications(context: Context) {
+        if (persistedLiveUpdateIds(context).isEmpty()) return
+        ensureScreenshotDeletionObserver(context)
+        cancelNotificationsForMissingImages(context.applicationContext)
+    }
+
+    private fun isImageAvailable(context: Context, uri: Uri): Boolean = runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(MediaStore.Images.Media.IS_TRASHED),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            cursor.moveToFirst() && cursor.getInt(0) == 0
+        } ?: false
+    }.getOrElse { error ->
+        // 权限/MediaProvider 的瞬态异常不能作为“已删除”依据，避免误撤通知。
+        Log.w("SnapClear Notify", "Unable to verify image availability: $uri", error)
+        true
+    }
+
+    private fun persistedLiveUpdateIds(context: Context): List<Int> {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.all.keys.mapNotNull { key ->
+            key.takeIf { it.startsWith(KEY_PREFIX_URI) }
+                ?.removePrefix(KEY_PREFIX_URI)
+                ?.toIntOrNull()
+        }
+    }
+
+    private fun stopScreenshotDeletionObserver(context: Context) {
+        synchronized(mediaObserverLock) {
+            val observer = mediaObserver ?: return
+            runCatching { context.contentResolver.unregisterContentObserver(observer) }
+            mediaObserver = null
+            mediaObserverThread?.quitSafely()
+            mediaObserverThread = null
+        }
     }
 
     /** 取消指定通知的 tick / post 闹钟 */
@@ -612,13 +735,9 @@ object NotificationHelper {
             .apply()
     }
 
-    /** 是否有权限发送流体云通知 */
-    private fun canPostPromoted(context: Context): Boolean {
-        return try {
-            context.getSystemService(NotificationManager::class.java).canPostPromotedNotifications()
-        } catch (e: Throwable) {
-            false
-        }
+    private fun isApi36Point1OrNewer(): Boolean {
+        if (Build.VERSION.SDK_INT < 36) return false
+        return Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1
     }
 
     /** 前台服务的重要性为 IMPORTANCE_FOREGROUND_SERVICE，不会被误判为界面前台。 */

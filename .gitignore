@@ -1,5 +1,6 @@
 *.iml
 .gradle
+.kotlin/
 /local.properties
 /.idea/
 .qoder/
@@ -9,3 +10,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+*.jks
+*.keystore
+keystore.properties
+release-keystore.properties

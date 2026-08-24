@@ -30,6 +30,7 @@ class ScreenshotContentJobService : JobService() {
                 ScreenshotObserver.init(this)
                 ScreenshotObserver.initLastDetectedId(contentResolver)
                 DiagnosticLogger.log(DiagnosticEventType.POLL, "系统 MediaStore Job 已唤醒")
+                NotificationHelper.reconcileActiveScreenshotNotifications(applicationContext)
                 ScreenshotObserver.detectAndAdvance(contentResolver) { uri ->
                     DiagnosticLogger.log(DiagnosticEventType.POLL, "系统 Job 发现截图: $uri")
                     NotificationHelper.showScreenshotNotification(applicationContext, uri)

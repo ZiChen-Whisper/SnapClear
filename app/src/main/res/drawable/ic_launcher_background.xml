@@ -4,8 +4,7 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 品牌青绿底色，与自适应图标前景的渐变背景相协调 -->
     <path
-        android:fillColor="#0D9488"
+        android:fillColor="#F6F6F6"
         android:pathData="M0,0h108v108h-108z" />
 </vector>

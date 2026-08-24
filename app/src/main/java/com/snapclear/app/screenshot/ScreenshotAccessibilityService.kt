@@ -23,7 +23,7 @@ class ScreenshotAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "SnapClear A11y"
         private const val EVENT_DEBOUNCE_MS = 300L
-        private val RETRY_DELAYS_MS = longArrayOf(0L, 250L, 750L, 1_500L, 2_500L)
+        private val RETRY_DELAYS_MS = longArrayOf(0L, 350L, 1_200L, 2_500L)
         private val SCREENSHOT_PACKAGES = setOf(
             "com.oplus.screenshot",
             "com.coloros.screenshot"
@@ -33,6 +33,7 @@ class ScreenshotAccessibilityService : AccessibilityService() {
     private var workerThread: HandlerThread? = null
     private var workerHandler: Handler? = null
     private var lastAcceptedEventElapsed = 0L
+    @Volatile private var detectionGeneration = 0
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -62,21 +63,30 @@ class ScreenshotAccessibilityService : AccessibilityService() {
             DiagnosticEventType.DETECT,
             "收到窗口唤醒事件(type=${event.eventType}, package=${packageName ?: "system"})，立即检测"
         )
+        val generation = ++detectionGeneration
         RETRY_DELAYS_MS.forEachIndexed { index, delay ->
-            workerHandler?.postDelayed({ detectScreenshot(index + 1) }, delay)
+            workerHandler?.postDelayed({
+                if (generation == detectionGeneration) detectScreenshot(index + 1, generation)
+            }, delay)
         }
     }
 
-    private fun detectScreenshot(attempt: Int) {
+    private fun detectScreenshot(attempt: Int, generation: Int) {
         if (!ScreenshotMonitorService.isMonitoringEnabled(this)) return
         try {
+            var foundScreenshot = false
             ScreenshotObserver.detectAndAdvance(contentResolver) { uri ->
+                foundScreenshot = true
                 DiagnosticLogger.log(
                     DiagnosticEventType.SCREENSHOT,
                     "无障碍唤醒检测到截图(第${attempt}次): $uri"
                 )
                 NotificationHelper.showScreenshotNotification(applicationContext, uri)
                 ScreenshotEvents.notifyScreenshotDetected()
+            }
+            if (foundScreenshot && generation == detectionGeneration) {
+                // 截图已经找到，后续补偿查询无需继续执行。
+                detectionGeneration++
             }
             ScreenshotMonitorService.recordHeartbeat(applicationContext)
         } catch (e: Exception) {

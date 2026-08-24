@@ -2,314 +2,132 @@ package com.snapclear.app.ui
 
 import android.graphics.Bitmap
 import android.net.Uri
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Straighten
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.snapclear.app.R
 import com.snapclear.app.screenshot.ScreenshotItem
 import com.snapclear.app.ui.image.ScreenshotImageLoader
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
-/**
- * 截图详情页
- *
- * 展示截图大图 + 文件信息 + 「拷贝并删除」「不再提示」操作。
- * 由主页截图卡片经 OPPO 无缝动画启动。
- */
 @Composable
-fun ScreenshotDetailScreen(
-    item: ScreenshotItem?,
-    onBack: () -> Unit,
-    onCopyDelete: (ScreenshotItem) -> Unit,
-    onIgnore: () -> Unit
-) {
-    val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val density = context.resources.displayMetrics.density
-    val previewWidthPx = (configuration.screenWidthDp * density).toInt()
-    val previewHeightPx = (configuration.screenHeightDp * density).toInt()
-    val fullBitmap by rememberFullImage(item?.uri, previewWidthPx, previewHeightPx)
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .windowInsetsPadding(WindowInsets.statusBars)
-    ) {
-        // 顶部导航栏
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CircularBackButton(
-                onBack = onBack,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "截图详情",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-
-        if (item == null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "加载中...",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            return
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // 大图
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                val bmp = fullBitmap
-                if (bmp != null) {
-                    Image(
-                        bitmap = bmp.asImageBitmap(),
-                        contentDescription = item.displayName,
-                        modifier = Modifier.fillMaxWidth(),
-                        contentScale = ContentScale.FillWidth
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier.padding(40.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Image,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "加载中",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                    }
+fun ScreenshotDetailScreen(item: ScreenshotItem?, onBack: () -> Unit, onCopyDelete: (ScreenshotItem) -> Unit, onDelete: (ScreenshotItem) -> Unit) {
+    val context = LocalContext.current; val config = LocalConfiguration.current; val density = context.resources.displayMetrics.density
+    val preview by rememberFullImage(item?.uri, (config.screenWidthDp * density).toInt(), (config.screenHeightDp * density).toInt())
+    val background = MaterialTheme.colorScheme.background
+    val hazeState = remember(background) { HazeState() }
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(Modifier.fillMaxSize().haze(hazeState)) {
+            if (item == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Spacer(Modifier.height(102.dp))
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                    val previewBitmap = preview.bitmap.takeIf { preview.uri == item.uri }
+                    if (previewBitmap != null) Image(previewBitmap.asImageBitmap(), item.displayName, Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
+                    else Box(Modifier.height(240.dp), contentAlignment = Alignment.Center) { Text("加载中", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                    InfoRow(R.drawable.ic_detail_file, "文件名", item.displayName)
+                    InfoRow(R.drawable.ic_detail_clock, "时间", detailTimeFormat.format(Date(item.dateTaken)))
+                    InfoRow(R.drawable.ic_detail_ruler, "尺寸", "${item.width} × ${item.height}")
+                    InfoRow(R.drawable.ic_detail_size, "大小", formatFileSize(item.size))
+                    InfoRow(R.drawable.ic_detail_path, "路径", item.relativePath, 2)
+                }
+                Spacer(Modifier.height(168.dp).windowInsetsPadding(WindowInsets.navigationBars))
             }
-
-            // 文件信息卡片
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                InfoRow(
-                    icon = Icons.Default.InsertDriveFile,
-                    label = "文件名",
-                    value = item.displayName
-                )
-                InfoRow(
-                    icon = Icons.Default.DateRange,
-                    label = "时间",
-                    value = formatDetailTime(item.dateTaken)
-                )
-                InfoRow(
-                    icon = Icons.Default.Straighten,
-                    label = "尺寸",
-                    value = "${item.width} × ${item.height}"
-                )
-                InfoRow(
-                    icon = Icons.Default.Image,
-                    label = "大小",
-                    value = formatFileSize(item.size)
-                )
-                InfoRow(
-                    icon = Icons.Default.InsertDriveFile,
-                    label = "路径",
-                    value = item.relativePath,
-                    maxLines = 2
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
         }
-
-        // 底部操作栏
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = onIgnore,
-                modifier = Modifier.weight(1f).height(48.dp),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_action_ignore),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("不再提示", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Button(
-                onClick = { onCopyDelete(item) },
-                modifier = Modifier.weight(1.5f).height(48.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_action_copy_delete),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("拷贝并删除", fontWeight = FontWeight.SemiBold)
+        ImmersiveTopBar { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { CircularBackButton(hazeState, onBack); Spacer(Modifier.width(10.dp)); Text("截图详情", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface) } }
+        if (item != null) ImmersiveBottomBar(Modifier.align(Alignment.BottomCenter)) {
+            Row(Modifier.widthIn(max = 304.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Button(
+                    { onCopyDelete(item) },
+                    Modifier.weight(1.45f).height(46.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) { Icon(painterResource(R.drawable.ic_action_copy_delete), null, Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("拷贝并删除", fontWeight = FontWeight.SemiBold) }
+                FilledTonalButton(
+                    { onDelete(item) },
+                    Modifier.weight(1f).height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) { Icon(painterResource(R.drawable.ic_action_delete), null, Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("删除") }
             }
         }
     }
 }
 
 @Composable
-private fun InfoRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String,
-    maxLines: Int = 1
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+private fun ImmersiveBottomBar(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val surface = MaterialTheme.colorScheme.background
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(168.dp)
+            .background(
+                Brush.verticalGradient(
+                    *arrayOf(
+                        0f to surface.copy(alpha = 0f),
+                        .18f to surface.copy(alpha = .03f),
+                        .34f to surface.copy(alpha = .10f),
+                        .48f to surface.copy(alpha = .24f),
+                        .62f to surface.copy(alpha = .44f),
+                        .74f to surface.copy(alpha = .66f),
+                        .84f to surface.copy(alpha = .82f),
+                        .92f to surface.copy(alpha = .94f),
+                        1f to surface
+                    )
+                )
+            )
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(start = 20.dp, top = 72.dp, end = 20.dp, bottom = 18.dp),
+        contentAlignment = Alignment.BottomCenter
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = maxLines,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        content()
     }
 }
 
-/**
- * 异步加载完整图片（非缩略图）
- */
-@Composable
-private fun rememberFullImage(
-    uri: Uri?,
-    targetWidthPx: Int,
-    targetHeightPx: Int
-): State<Bitmap?> {
+@Composable private fun InfoRow(@DrawableRes icon: Int, label: String, value: String, maxLines: Int = 1) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Icon(painterResource(icon), null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp)); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = maxLines, overflow = TextOverflow.Ellipsis) } }
+}
+
+private data class PreviewResult(val uri: Uri?, val bitmap: Bitmap?)
+
+@Composable private fun rememberFullImage(uri: Uri?, width: Int, height: Int): State<PreviewResult> {
     val context = LocalContext.current
-    return produceState<Bitmap?>(initialValue = null, uri, targetWidthPx, targetHeightPx) {
-        if (uri == null) return@produceState
-        value = withContext(Dispatchers.IO) {
-            ScreenshotImageLoader.loadPreview(
-                resolver = context.contentResolver,
-                uri = uri,
-                targetWidthPx = targetWidthPx,
-                targetHeightPx = targetHeightPx
-            )
+    return produceState(PreviewResult(uri, null), uri, width, height) {
+        value = PreviewResult(uri, null)
+        if (uri != null) {
+            val bitmap = withContext(Dispatchers.IO) {
+                ScreenshotImageLoader.loadPreview(context.contentResolver, uri, width, height)
+            }
+            value = PreviewResult(uri, bitmap)
         }
     }
 }
-
 private val detailTimeFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
-private fun formatDetailTime(timestamp: Long): String = detailTimeFormat.format(Date(timestamp))
-
-private fun formatFileSize(bytes: Long): String {
-    val kb = bytes / 1024.0
-    val mb = kb / 1024.0
-    return when {
-        mb >= 1 -> String.format(Locale.getDefault(), "%.1f MB", mb)
-        kb >= 1 -> String.format(Locale.getDefault(), "%.0f KB", kb)
-        else -> "$bytes B"
-    }
-}
+private fun formatFileSize(bytes: Long): String { val kb = bytes / 1024.0; val mb = kb / 1024.0; return when { mb >= 1 -> String.format(Locale.getDefault(), "%.1f MB", mb); kb >= 1 -> String.format(Locale.getDefault(), "%.0f KB", kb); else -> "$bytes B" } }

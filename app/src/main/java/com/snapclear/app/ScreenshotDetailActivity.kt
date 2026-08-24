@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.snapclear.app.clipboard.ClipboardHelper
 import com.snapclear.app.notification.NotificationHelper
 import com.snapclear.app.screenshot.ScreenshotEvents
@@ -24,10 +25,10 @@ import com.snapclear.app.ui.theme.SnapClearTheme
  * 由主页「最近截图」卡片经 OPPO 无缝动画启动，展示：
  * - 截图大图
  * - 文件信息（文件名、路径、时间、尺寸、大小）
- * - 「拷贝并删除」「不再提示」两个操作
+ * - 「拷贝并删除」「删除」两个操作
  *
  * 「拷贝并删除」：复制到剪贴板 + 移入系统回收站 + 刷新主页列表 + finish
- * 「不再提示」：直接 finish（截图仍保留在最近截图面板）
+ * 「删除」：移入系统回收站并刷新列表
  */
 class ScreenshotDetailActivity : ComponentActivity() {
 
@@ -48,12 +49,16 @@ class ScreenshotDetailActivity : ComponentActivity() {
         if (uri != null) {
             Thread {
                 val item = ScreenshotRepository.queryByUri(this, uri)
-                screenshotItem = item
+                runOnUiThread {
+                    if (!isDestroyed) screenshotItem = item
+                }
             }.start()
         }
 
         setContent {
-            SnapClearTheme {
+            val forceLight = getSharedPreferences("snapclear_prefs", MODE_PRIVATE).getBoolean("force_light_mode", false)
+            val systemDarkTheme = isSystemInDarkTheme()
+            SnapClearTheme(darkTheme = systemDarkTheme && !forceLight) {
                 ScreenshotDetailScreen(
                     item = screenshotItem,
                     onBack = { finish() },
@@ -62,9 +67,13 @@ class ScreenshotDetailActivity : ComponentActivity() {
                         ScreenshotEvents.notifyScreenshotListChanged()
                         finish()
                     },
-                    onIgnore = {
-                        // 不再提示：直接返回，截图仍保留在最近截图面板
-                        finish()
+                    onDelete = { item ->
+                        if (ClipboardHelper.requestTrashScreenshot(this, item.uri)) {
+                            ScreenshotEvents.notifyScreenshotListChanged()
+                            finish()
+                        } else {
+                            android.widget.Toast.makeText(this, "删除失败，请手动删除", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
             }
